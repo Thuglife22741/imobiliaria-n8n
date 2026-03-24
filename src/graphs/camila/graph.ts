@@ -1,5 +1,5 @@
 import { StateGraph, END, START } from "@langchain/langgraph";
-import { ChatOpenAI } from "@langchain/openai";
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { tool } from "@langchain/core/tools";
@@ -334,10 +334,10 @@ async function agenteCamila(state: CamilaState): Promise<Partial<CamilaState>> {
   const log = createChildLogger({ no: "agente_camila", sessao: state.dadosWebhook?.id_sessao });
   log.info("Invocando agente Camila (Gemini + React)");
 
-  const llm = new ChatOpenAI({
-    model: "gpt-4o-mini",
+  const llm = new ChatGoogleGenerativeAI({
+    model: "gemini-1.5-flash",
     temperature: 0.1,
-    apiKey: process.env.OPENAI_API_KEY,
+    apiKey: process.env.GOOGLE_GEMINI_API_KEY,
   });
 
   const ferramentas = criarFerramentasCamila(
