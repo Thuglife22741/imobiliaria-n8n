@@ -45,4 +45,4 @@ GROQ_API_KEY=gsk_xxxx...
 ```
 
 ## 🧠 Arquitetura de Conversação
-A inteligência do chat ocorre num "StateGraph" chamado Camila (`src/graphs/camila/graph.ts`). O Agente avalia o Lead no banco de dados, exige identificação (Nome, E-mail, Telefone), invoca vetorialmente os cards do Supabase para enviar ao cliente conforme a intenção "informar_imoveis", e por fim tem habilidades de agir ativamente no funil de vendas gravando "Contact Inicial" via Tools/Functions Nativas.
+A inteligência do chat ocorre num "StateGraph" chamado Camila (`src/graphs/camila/graph.ts`). O Agente avalia o Lead no banco de dados, exige identificação (Nome, E-mail, Telefone), invoca vetorialmente os cards do Supabase para enviar ao cliente conforme a intenção "informar_imoveis", e por fim tem habilidades de agir ativamente no funil de vendas gravando "Contact Inicial" via Tools/Functions Nativas. 
