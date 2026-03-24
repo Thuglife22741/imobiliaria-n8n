@@ -1,12 +1,10 @@
-[providers]
-node = false
-bun = true
+providers = ['bun']
 
 [phases.setup]
-nixPkgs = ["bun"]
+nixPkgs = ['bun']
 
 [phases.install]
-cmds = ["bun install --no-cache"]
+cmds = ['bun install --no-save']
 
 [start]
-cmd = "bun start"
+cmd = 'bun run start'
