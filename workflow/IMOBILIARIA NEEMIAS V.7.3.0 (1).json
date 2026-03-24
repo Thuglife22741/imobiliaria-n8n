@@ -1,0 +1,3345 @@
+{
+  "name": "IMOBILIARIA NEEMIAS V.7.3.0",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 * * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        2416,
+        1424
+      ],
+      "id": "f1f1f2ce-b256-46d3-b961-f300e1ac351b",
+      "name": "Gatilho a cada hora"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery"
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2656,
+        1424
+      ],
+      "id": "c34cd00e-3bc9-49f3-a2cf-302d9ca75b37",
+      "name": "Buscar Agendamentos de Hoje",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "5RchCVzymqLNZUjN",
+          "name": "Supabase imobiliaria-pro-crm"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "03109e79-1218-47dd-b1a1-e13b1be0b4a4",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2896,
+        1424
+      ],
+      "id": "04ddc711-ec6a-4f6d-a261-a7cf47c9d1dd",
+      "name": "Tem agendamentos?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "541456e7-165b-422d-a784-30a38b87c558",
+              "name": "mensagem_lembrete",
+              "value": "=🏠 *Lembrete de Visita — Imobiliária Neemias*\n\nOlá, {{ $json.cliente_nome }}! 😊\n\nPassando para lembrar que em *1 hora* você tem uma visita agendada:\n\n📍 *Imóvel:* {{ $json.servico }}\n📅 *Data:* {{ $json.data.split('-').reverse().join('/') }}\n⏰ *Horário:* {{ $json.horario.slice(0, 5) }}\n👤 *Corretor:* {{ $json.corretor_nome }}\n\nQualquer dúvida ou se precisar remarcar, é só responder aqui! Até logo! 🔑",
+              "type": "string"
+            },
+            {
+              "id": "3e5c77b9-fa64-4c33-a56b-6ca45430e2d3",
+              "name": "telefone",
+              "value": "={{ $json.cliente_telefone }}",
+              "type": "string"
+            },
+            {
+              "id": "3560f151-bb2c-4d5b-94e2-3701e95ad56e",
+              "name": "agendamento_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3136,
+        1344
+      ],
+      "id": "a30e940e-323e-4aa9-be59-e7c0d7347cdf",
+      "name": "Montar Lembrete"
+    },
+    {
+      "parameters": {
+        "resource": "messages-api",
+        "instanceName": "imobiliaria",
+        "remoteJid": "={{ $json.telefone }}",
+        "messageText": "={{ $json.mensagem_lembrete }}",
+        "options_message": {
+          "delay": 1000
+        }
+      },
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        3376,
+        1344
+      ],
+      "id": "8cd6a491-21a2-4289-8260-cd6c27ab76dc",
+      "name": "Enviar Lembrete WhatsApp",
+      "credentials": {
+        "evolutionApi": {
+          "id": "kHphjQxReDfvc71y",
+          "name": "Evolution Alavancaai"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "agendamentos",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Montar Lembrete').item.json.agendamento_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "lembrete_enviado"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3616,
+        1344
+      ],
+      "id": "84c8debf-44ac-4037-a324-a9f65c396cb6",
+      "name": "Marcar Lembrete Enviado",
+      "credentials": {
+        "supabaseApi": {
+          "id": "5RchCVzymqLNZUjN",
+          "name": "Supabase imobiliaria-pro-crm"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## 🔔 FOLLOW UP — Lembrete 1h Antes da Visita\n\n**Como funciona:**\n1. Roda todo hora (cron `0 * * * *`)\n2. Busca agendamentos com status `agendado` para HOJE no horário entre 55min e 65min à frente\n3. Envia lembrete personalizado via WhatsApp\n4. Atualiza status para `lembrete_enviado` (evita envio duplo)\n\n**⚠️ Configurar:**\n- Trocar `fortuna` pelo nome da sua instância Evolution\n- Verificar credenciais Supabase e Evolution",
+        "height": 300,
+        "width": 500,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2352,
+        1056
+      ],
+      "id": "d6a1f8e9-7668-43ae-81a4-b8e370fe65ed",
+      "name": "Nota Follow Up"
+    },
+    {
+      "parameters": {
+        "content": "## ✅ Sem agendamentos\nNenhum agendamento 1h antes — workflow encerra aqui.",
+        "height": 120,
+        "width": 280,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3136,
+        1504
+      ],
+      "id": "b0113679-0ff9-41f7-b02d-5114d993c87e",
+      "name": "Nota Sem Agendamentos"
+    },
+    {
+      "parameters": {
+        "content": "##\n\n",
+        "height": 688,
+        "width": 1504,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        2336,
+        1024
+      ],
+      "typeVersion": 1,
+      "id": "6738a651-cc75-453c-a613-cb3ec6775750",
+      "name": "Sticky Note7"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5d5973b8-7627-4533-bed3-1f8eb951a03e",
+              "name": "event",
+              "value": "={{ $json.body.event }}",
+              "type": "string"
+            },
+            {
+              "id": "751cf1b7-bfb2-48b4-8e35-494e46156335",
+              "name": "instance",
+              "value": "={{ $json.body.instance }}",
+              "type": "string"
+            },
+            {
+              "id": "a47f40ec-d2d5-4e85-be06-346d0cc1a261",
+              "name": "remoteJid",
+              "value": "={{ $json.body.data.key.remoteJid.split('@')[0].trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "18ee8a35-8ea5-45dc-9f64-92d7eabbecd9",
+              "name": "fromMe",
+              "value": "={{ $json.body.data.key.fromMe }}",
+              "type": "string"
+            },
+            {
+              "id": "eeaf0983-03fa-4c3f-9960-4253af17ef75",
+              "name": "pushName",
+              "value": "={{ $json.body.data.pushName }}",
+              "type": "string"
+            },
+            {
+              "id": "646dff76-28d2-4dd2-ae84-0242f6e57e71",
+              "name": "conversation",
+              "value": "={{ $json.body.data.message.conversation }}",
+              "type": "string"
+            },
+            {
+              "id": "97ef02ac-0461-4d41-969a-0b719e863137",
+              "name": "messageType",
+              "value": "={{ $json.body.data.messageType }}",
+              "type": "string"
+            },
+            {
+              "id": "b1512842-de35-4cbe-9fd7-dc67bef788c9",
+              "name": "timestamp",
+              "value": "={{ $json.body.data.messageTimestamp }}",
+              "type": "string"
+            },
+            {
+              "id": "5b6ed7ad-8dc5-449e-b5c5-60427c66357c",
+              "name": "idMensagem",
+              "value": "={{ $json.body.data.key.id }}",
+              "type": "string"
+            },
+            {
+              "id": "76c7ff06-6821-4744-a018-7090f06d50a7",
+              "name": "id_sessao",
+              "value": "={{ $json.body.instance }}-{{ $json.body.data.key.remoteJid }}",
+              "type": "string"
+            },
+            {
+              "id": "tel-display-001",
+              "name": "telefone_display",
+              "value": "={{ $json.body.data.key.remoteJid.split('@')[0].trim().replace(/^55/, '') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -4448,
+        528
+      ],
+      "id": "b714e48c-a5ac-4e94-a847-799c4e5920a0",
+      "name": "Dados2"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.message }}",
+        "options": {
+          "systemMessage": "=HOJE É: {{ $now.format('FFFF') }}\n\nDADOS DO CLIENTE:\n- Nome: {{ $('Dados2').item.json.pushName }}\n- Telefone: {{ $('Dados2').item.json.remoteJid }}\n\n<identity_and_personality>\n  <role>\n    Você é a Camila, consultora virtual da Imobiliária Neemias 🏠🔑.\n    Sua missão é encantar os clientes, apresentar imóveis de forma envolvente\n    e facilitar o agendamento e remarcar visitas com agilidade e simpatia.\n  </role>\n\n  <tone_of_voice>\n    - Sempre chame o cliente pelo primeiro nome. NUNCA pergunte o nome novamente.\n    - Tom caloroso, profissional e consultivo.\n    - Use emojis com moderação.\n  </tone_of_voice>\n</identity_and_personality>\n\n<lead_data_integration>\n  <critical_instructions>\n    - O nome REAL e ATUAL do cliente nesta conversa é: {{ $('Dados2').item.json.pushName }}\n    - IGNORE qualquer nome diferente que apareça no seu histórico de conversa.\n    - O histórico pode conter nomes de outras sessões — NÃO use esses nomes.\n    - SEMPRE use {{ $('Dados2').item.json.pushName }} como referência de nome.\n    - Se vier como \"undefined\" ou vazio, use \"amigo(a)\".\n    - NUNCA peça o nome — você já o tem acima.\n    - Para agendamento: NUNCA peça o telefone. Confirme o que já consta:\n      \"Vou confirmar sua visita pelo telefone {{ $('Dados2').item.json.telefone_display }}. Está correto?\"\n  </critical_instructions>\n</lead_data_integration>\n\n<reference_code_recognition>\n  <critical_rule>\n    Quando o cliente enviar um CÓDIGO DE REFERÊNCIA de imóvel (CA252, AP123, SKY PARNAÍBA, etc.),\n    interprete IMEDIATAMENTE como: o cliente quer agendar uma visita para aquele imóvel.\n    Avance direto para perguntar a data e hora desejadas.\n  </critical_rule>\n</reference_code_recognition>\n\n<tools_and_capabilities>\n  <tool_buscar_imoveis>\n    Use SEMPRE que o cliente perguntar sobre imóveis disponíveis. Nunca diga \"vou verificar\".\n  </tool_buscar_imoveis>\n</tools_and_capabilities>\n\n<interaction_flow>\n  <step_1_busca>\n    Se a intenção for encontrar um imóvel: use buscar_imoveis imediatamente.\n  </step_1_busca>\n\n  <step_2_referencia_recebida>\n    Se o cliente enviar código de referência: pergunte data e horário. Informe que o corretor é Carlos Mendes.\n  </step_2_referencia_recebida>\n\n  <step_3_agendamento>\n    Quando tiver referência + data + hora: confirme tudo, confirme o telefone, retorne JSON \"agendamento_confirmado\".\n  </step_3_agendamento>\n\n  <step_4_reagendamento>\n    Se o cliente pedir para CANCELAR ou REMARCAR uma visita já agendada:\n    - Você já sabe a data/hora/imóvel do agendamento pelo histórico da conversa. NÃO pergunte de novo.\n    - Pergunte APENAS a nova data e hora desejada.\n    - Quando o cliente informar a nova data/hora, retorne IMEDIATAMENTE o JSON \"reagendamento_solicitado\".\n    - Se o cliente disser \"mesmo horário\", use o mesmo horário que estava agendado.\n    - Sempre inclua no JSON: data_antiga, hora_antiga, codigo_imovel, data_agendamento, hora_agendamento.\n    - data_antiga e hora_antiga devem ser extraídas do contexto da conversa (agendamento anterior).\n  </step_4_reagendamento>\n</interaction_flow>\n\n<response_format>\n  Responda SEMPRE em JSON válido puro. NUNCA use blocos markdown (```json).\n\n  <opcao_1_informar_imoveis>\n    {\n      \"intenção\": \"informar_imoveis\",\n      \"mensagem\": [\n        {\n          \"imagem_url\": \"https://site.com/imagem1.jpg\",\n          \"texto\": \"*Casa — Bairro X*\\n*Referência:* CA619\\n*Valor:* R$ 340.000,00\\n\\nDescrição.\\n\\n🔗 *Mais detalhes:* https://link\"\n        }\n      ]\n    }\n  </opcao_1_informar_imoveis>\n\n  <opcao_2_agendamento_confirmado>\n    Use quando tiver referência + data + hora.\n    {\n      \"intenção\": \"agendamento_confirmado\",\n      \"mensagem\": \"Perfeito! Visita ao imóvel [REF] agendada.\",\n      \"data_agendamento\": \"19/02/2026\",\n      \"hora_agendamento\": \"15:00\",\n      \"codigo_imovel\": \"CA252\",\n      \"corretor\": \"Carlos Mendes\"\n    }\n  </opcao_2_agendamento_confirmado>\n\n  <opcao_3_reagendamento_solicitado>\n    Use quando cliente pedir para cancelar ou remarcar.\n    {\n      \"intenção\": \"reagendamento_solicitado\",\n      \"mensagem\": \"Vou reagendar sua visita para o novo horário.\",\n      \"data_antiga\": \"19/02/2026\",\n      \"hora_antiga\": \"15:00\",\n      \"codigo_imovel\": \"CA252\",\n      \"data_agendamento\": \"21/02/2026\",\n      \"hora_agendamento\": \"10:00\",\n      \"corretor\": \"Carlos Mendes\"\n    }\n  </opcao_3_reagendamento_solicitado>\n\n  <opcao_4_pergunta_frequente>\n    Para saudações, perguntas gerais, coleta de data/hora ou conversas intermediárias.\n    {\n      \"intenção\": \"pergunta_frequente\",\n      \"mensagem\": \"Olá, [Nome]! 😊 Sou a Camila da Imobiliária Neemias. Como posso te ajudar?\"\n    }\n  </opcao_4_pergunta_frequente>\n</response_format>\n\n<restrictions>\n  - NUNCA agende horários no passado. Valide em relação a {{ $now.format('dd/MM/yyyy HH:mm') }}.\n  - NUNCA peça informações que já constam nos DADOS DO CLIENTE.\n  - Responda EXCLUSIVAMENTE em JSON válido.\n  - Só retorne \"agendamento_confirmado\" quando tiver: código + data + hora.\n  - Se o cliente disser que JÁ tentou agendar antes mas não funcionou, trate como um NOVO agendamento.\n\n\n\n\n# KANBAN — GESTÃO DO FUNIL DE VENDAS\n<kanban>\n  <descricao>\n    Use a ferramenta \"Atualizar Pipeline Lead\" para mover o lead entre as etapas do funil.\n    Mova IMEDIATAMENTE quando a etapa mudar — não acumule, não espere.\n  </descricao>\n\n  <etapas>\n    | Etapa                 | Ferramenta                    | Quando                                           |\n    |-----------------------|-------------------------------|--------------------------------------------------|\n    | Novo Lead             | (automático — não usar tool)  | Criado automaticamente no primeiro contato       |\n    | Contato Inicial       | \"Atualizar Pipeline Lead\"     | Cliente pediu para ver imóveis — ANTES dos cards |\n    | Visita Marcada        | (automático — não usar tool)  | Banco move automaticamente ao criar agendamento  |\n    | Proposta Enviada      | \"Atualizar Pipeline Lead\"     | Cliente recebeu proposta formal                  |\n    | Documentação/Análise  | \"Atualizar Pipeline Lead\"     | Cliente vai enviar documentação                  |\n    | Fechado/Contrato      | \"Atualizar Pipeline Lead\"     | Contrato assinado                                |\n    | Perdido               | \"Atualizar Pipeline Lead\"     | Cliente desistiu ou sumiu                        |\n  </etapas>\n\n  <regras>\n    - \"Visita Marcada\": NÃO use tool — o banco move automaticamente quando agendamento é criado.\n    - O banco protege contra regressão: leads NUNCA voltam para etapa anterior.\n    - Se chamar \"Contato Inicial\" para lead já em \"Visita Marcada\", o banco ignora — sem risco.\n    - \"Perdido\" pode ser setado de qualquer etapa.\n  </regras>\n</kanban>\n\n\n\n\n\n\n\n<resumo_visita>\n  <REGRA_ABSOLUTA>\n    Quando tiver todos os dados para agendar (imóvel + data + hora), ANTES de montar\n    o JSON de resposta com \"agendamento_confirmado\", você DEVE:\n    1. Chamar \"Salvar Resumo da Visita\" com os dados do agendamento\n    2. Chamar \"Atualizar Pipeline Lead\" com status: \"Visita Marcada\"\n    3. SÓ ENTÃO retornar o JSON com intenção \"agendamento_confirmado\"\n\n    Em reagendamento: chame novamente \"Salvar Resumo da Visita\" para atualizar.\n  </REGRA_ABSOLUTA>\n\n  <o_que_salvar>\n    - descricao: \"Visita agendada para o imóvel [CÓDIGO] em [DATA] às [HORA] com Carlos Mendes.\"\n    - codigo_imovel: apenas a referência, ex: CA522\n  </o_que_salvar>\n</resumo_visita>\n\n\n\n<qualificacao_lead>\n  <REGRA_ABSOLUTA>\n    NUNCA retorne \"informar_imoveis\" na primeira mensagem em que o cliente demonstra interesse.\n    SEMPRE faça pelo menos 1 rodada de qualificação antes de enviar imóveis.\n  </REGRA_ABSOLUTA>\n\n  <quando_qualificar>\n    Quando o cliente disser que quer comprar/alugar/ver imóveis de forma genérica\n    (ex: \"quero ver casas\", \"procuro apartamento\", \"tem imóveis disponíveis?\"),\n    faça perguntas de qualificação antes de enviar os cards.\n  </quando_qualificar>\n\n  <perguntas_de_qualificacao>\n    Faça UMA pergunta por vez, de forma conversacional. Exemplos:\n    - \"Você busca casa ou apartamento?\"\n    - \"Quantos quartos você precisa?\"\n    - \"Prefere com ou sem garagem?\"\n    - \"Qual faixa de valor você tem em mente?\"\n    - \"Tem preferência de bairro ou região?\"\n\n    Não precisa fazer todas — 2 ou 3 perguntas já são suficientes para entender o perfil.\n    Quando tiver informação suficiente, retorne \"informar_imoveis\" com imóveis filtrados.\n  </perguntas_de_qualificacao>\n\n  <quando_nao_qualificar>\n    Se o cliente já especificou o que quer (ex: \"quero uma casa de 3 quartos com garagem\"),\n    pode ir direto para \"informar_imoveis\" sem fazer mais perguntas.\n    Se o cliente já escolheu uma referência específica (ex: \"CA659\"), vá direto ao agendamento.\n  </quando_nao_qualificar>\n</qualificacao_lead>\n\n\n\n\n<qualificacao_inicial>\n  <quando_receber_nome_email>\n    Quando o cliente informar nome completo e/ou email:\n    1. Chame IMEDIATAMENTE \"Salvar Qualificação Inicial\" com os dados\n    2. Chame \"Atualizar Pipeline Lead\" com status: \"Contato Inicial\"\n    3. Responda: \"Perfeito, [nome]! 😊 Dados salvos! Agora me conta, como posso te ajudar?\"\n  </quando_receber_nome_email>\n\n  <filtro_imoveis>\n    Quando o cliente pedir imóveis de forma genérica (\"quero ver casas\", \"tem apartamentos?\"),\n    faça 1 a 2 perguntas de qualificação antes de enviar cards:\n    - Tipo (casa/apartamento)?\n    - Quantos quartos?\n    - Faixa de valor ou bairro? (opcional)\n    Com essas informações, filtre e envie apenas os imóveis mais relevantes.\n    NUNCA envie todo o banco sem filtrar.\n  </filtro_imoveis>\n</qualificacao_inicial>\n\n</restrictions>"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -1712,
+        448
+      ],
+      "id": "5f1950e1-4ad8-425a-b54c-44f11ac65e44",
+      "name": "AI Agent1"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json[\"Mensagem de Audio\"].id_sessao }}\n",
+        "sessionTTL": 3600,
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryRedisChat",
+      "typeVersion": 1.5,
+      "position": [
+        -1776,
+        768
+      ],
+      "id": "905cff83-14a8-4c1e-970f-036dfc6a1fc7",
+      "name": "Redis Chat Memory1",
+      "credentials": {
+        "redis": {
+          "id": "iFMSJQcB4GMOWlxF",
+          "name": "Redis"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c7a9f891-3441-4b61-8ae5-3450bc2cb29f",
+              "name": "message",
+              "value": "={{ $('Dados2').item.json.conversation }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2560,
+        464
+      ],
+      "id": "441e3eb0-4d69-4ca4-a496-607bc07b8f8c",
+      "name": "Mensagem de Texto1"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Dados2').item.json.messageType }}",
+                    "rightValue": "conversation",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "cdc97e07-cc8f-4501-b948-a6afc889a09a"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "0c18fa05-3022-4b6c-a848-e7e55034793f",
+                    "leftValue": "={{ $('Dados2').item.json.messageType }}",
+                    "rightValue": "audioMessage",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -3072,
+        544
+      ],
+      "id": "914759bd-eb14-449b-a8c0-3f0a7abe3a07",
+      "name": "Tipo de Mensagem1"
+    },
+    {
+      "parameters": {
+        "resource": "chat-api",
+        "operation": "get-media-base64",
+        "instanceName": "={{ $('Dados2').item.json.instance }}",
+        "messageId": "={{ $('Dados2').item.json.idMensagem }}"
+      },
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        -2800,
+        656
+      ],
+      "id": "b9dd1744-26bc-4082-b414-aebf8cb29782",
+      "name": "Get Base ",
+      "credentials": {
+        "evolutionApi": {
+          "id": "kHphjQxReDfvc71y",
+          "name": "Evolution Alavancaai"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "data.base64",
+        "options": {
+          "fileName": "audio.mp3",
+          "mimeType": "audio/mpeg"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        -2560,
+        656
+      ],
+      "id": "609233ee-f389-4a4b-8995-5d1cbb11ecfb",
+      "name": "Audio1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a9b0447a-ad26-487e-b8ae-bf5b1b6d3174",
+              "name": "message",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2128,
+        656
+      ],
+      "id": "cf2b9f97-e897-4c5d-baca-e47311c3c4a8",
+      "name": "Mensagem de Audio1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/audio/transcriptions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "groqApi",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "whisper-large-v3-turbo"
+            },
+            {
+              "name": "temperature",
+              "value": "0"
+            },
+            {
+              "name": "response_format",
+              "value": "verbose_json"
+            },
+            {
+              "name": "language",
+              "value": "pt"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2304,
+        656
+      ],
+      "id": "b1906780-e595-4dde-8396-55c0511bf6d2",
+      "name": "Groq1",
+      "credentials": {
+        "groqApi": {
+          "id": "3wLNl8OexF0eKgqy",
+          "name": "Groq fernandoborgescerqueira@gmail.com"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"messages\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      }\n    }\n  },\n  \"required\": [\"messages\"]\n}\n"
+      },
+      "id": "8c1b720c-169f-4ed9-acd2-fed85f423c9e",
+      "name": "Output Parser1",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        3056,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Formate e separe a seguinte mensagem: {{ $json.mensagem }}\n",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "=Sua única saída deve ser um objeto JSON no seguinte formato:\n\n{\n  \"messages\": [\n    \"Mensagem 1\",\n    \"Mensagem 2\",\n    \"Mensagem 3\"\n  ]\n}\n\n- Nunca adicione explicações, nem texto fora desse JSON.\n- Não crie a chave \"output\".\n- Se a mensagem já for curta, devolva apenas:\n{\n  \"messages\": [\"Mensagem única aqui\"]\n}\n- Nunca devolva array vazio.\n- Nunca mais de 4 mensagens.\n"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.6,
+      "position": [
+        2752,
+        432
+      ],
+      "id": "bea7656d-b4c7-4f56-a9e8-8725b2f1c00f",
+      "name": "Parser1"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "output.messages",
+        "include": "allOtherFields",
+        "options": {
+          "destinationFieldName": "message"
+        }
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        3072,
+        432
+      ],
+      "id": "4d5da856-d642-4a0e-a629-73d4352034dc",
+      "name": "Split Out1"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        3328,
+        432
+      ],
+      "id": "0f049048-e398-4841-b6f4-64e4c3f5b597",
+      "name": "Loop Over Items1"
+    },
+    {
+      "parameters": {
+        "resource": "messages-api",
+        "instanceName": "={{ $('Dados2').item.json.instance }}",
+        "remoteJid": "={{ $('Dados2').item.json.remoteJid }}",
+        "messageText": "={{ $json.message }}",
+        "options_message": {
+          "delay": 2000,
+          "linkPreview": true
+        }
+      },
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        3616,
+        512
+      ],
+      "id": "f6d137d3-c070-409c-9e5e-a10c2da7a409",
+      "name": "Enviar Mensagem1",
+      "credentials": {
+        "evolutionApi": {
+          "id": "kHphjQxReDfvc71y",
+          "name": "Evolution Alavancaai"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parser robusto da saída do Agente Gemini\n\n// 1. Pega a saída bruta da IA\nlet raw = items[0].json.output || '';\n\n// 2. Remove markdown code fences\nraw = raw.replace(/^```json\\s*/i, '').replace(/^```\\s*/i, '');\nraw = raw.replace(/\\s*```$/, '').trim();\n\n// 3. Extrai o primeiro bloco JSON { ... } da string\nconst jsonMatch = raw.match(/\\{[\\s\\S]*\\}/);\nif (jsonMatch) {\n  raw = jsonMatch[0];\n}\n\n// 4. Parse do JSON\nlet aiOutput;\ntry {\n  aiOutput = JSON.parse(raw);\n} catch (error) {\n  aiOutput = { \"intenção\": \"pergunta_frequente\", mensagem: raw };\n}\n\n// 5. Normaliza intenção\nconst intencao = aiOutput[\"intenção\"] || aiOutput[\"intencao\"] || \"pergunta_frequente\";\naiOutput[\"intenção\"] = intencao;\n\n// 6. Para informar_imoveis: garante array\nif (aiOutput[\"intenção\"] === \"informar_imoveis\") {\n  if (typeof aiOutput.mensagem === \"string\") {\n    try {\n      const parsed = JSON.parse(aiOutput.mensagem);\n      if (Array.isArray(parsed)) {\n        aiOutput.mensagem = parsed;\n      } else {\n        aiOutput[\"intenção\"] = \"pergunta_frequente\";\n      }\n    } catch (e) {\n      aiOutput[\"intenção\"] = \"pergunta_frequente\";\n    }\n  }\n  if (!Array.isArray(aiOutput.mensagem)) {\n    aiOutput[\"intenção\"] = \"pergunta_frequente\";\n  }\n}\n\n// Helper: converte dd/MM/yyyy para yyyy-MM-dd\nfunction formatarData(dataStr) {\n  if (!dataStr) return null;\n  const partes = dataStr.split(\"/\");\n  if (partes.length === 3) return partes[2] + \"-\" + partes[1] + \"-\" + partes[0];\n  return dataStr; // já pode estar em formato ISO\n}\n\n// Helper: garante formato HH:mm:ss\nfunction formatarHora(horaStr) {\n  if (!horaStr) return null;\n  return horaStr.length === 5 ? horaStr + \":00\" : horaStr;\n}\n\n// 7. Formata dados de agendamento\nlet dataFormatada = null;\nlet horaAgendamento = null;\nlet dataAntiga = null;\nlet horaAntiga = null;\nlet codigoImovel = null;\nlet corretor = \"Carlos Mendes\";\n\nif (aiOutput[\"intenção\"] === \"agendamento_confirmado\" || aiOutput[\"intenção\"] === \"reagendamento_solicitado\") {\n  dataFormatada = formatarData(aiOutput.data_agendamento);\n  horaAgendamento = formatarHora(aiOutput.hora_agendamento);\n  codigoImovel = aiOutput.codigo_imovel || null;\n  corretor = aiOutput.corretor || \"Carlos Mendes\";\n\n  if (aiOutput[\"intenção\"] === \"reagendamento_solicitado\") {\n    dataAntiga = formatarData(aiOutput.data_antiga);\n    horaAntiga = formatarHora(aiOutput.hora_antiga);\n  }\n}\n\n// 8. Retorna objeto padronizado\nreturn {\n  \"intenção\": aiOutput[\"intenção\"],\n  mensagem: aiOutput.mensagem,\n  data_agendamento: dataFormatada,\n  hora_agendamento: horaAgendamento,\n  data_antiga: dataAntiga,\n  hora_antiga: horaAntiga,\n  codigo_imovel: codigoImovel,\n  corretor: corretor\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -912,
+        448
+      ],
+      "id": "100edc7e-a237-4524-9bfd-45c5baa8e3b9",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "agendamentos",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "data",
+              "condition": "eq",
+              "keyValue": "={{ $('Code1').item.json.data_agendamento }}"
+            },
+            {
+              "keyName": "colaborador_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Buscar Corretor1').first()?.json?.id ?? '00000000-0000-0000-0000-000000000000' }}"
+            },
+            {
+              "keyName": "horario",
+              "condition": "eq",
+              "keyValue": "={{ $('Code1').item.json.hora_agendamento }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        528,
+        224
+      ],
+      "id": "7363c046-09d4-4e8e-a0d9-295a53f0f922",
+      "name": "Verificar Agenda1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "5RchCVzymqLNZUjN",
+          "name": "Supabase imobiliaria-pro-crm"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0840da47-0036-472a-a25c-b45ec39eaffe",
+              "name": "mensagem ",
+              "value": "Olá! Infelizmente, o horário que você escolheu já está ocupado. Por favor, tente outro horário ou consulte nossa disponibilidade.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1904,
+        96
+      ],
+      "id": "5718e744-7580-44c1-b23c-b66a596e46d5",
+      "name": "Mensagem Horário Ocupado1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "5ddb5e67-6bf9-4dd1-ab3b-ee7f10a37761",
+              "leftValue": "={{ $(\"Verificar Agenda1\").length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            },
+            {
+              "id": "9d9a5db0-4e81-480a-83ec-e88367768d4b",
+              "leftValue": "",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1088,
+        224
+      ],
+      "id": "e3a6fb0b-fa00-4566-ab18-1074f53997f2",
+      "name": "Verificar Disponibilidade1",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "tableId": "agendamentos",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "lead_id",
+              "fieldValue": "={{ $('Check Lead Existe').item.json.id }}"
+            },
+            {
+              "fieldId": "colaborador_id",
+              "fieldValue": "={{ $('Buscar Corretor1').first()?.json?.id ?? null }}"
+            },
+            {
+              "fieldId": "horario",
+              "fieldValue": "={{ $('Code1').item.json.hora_agendamento }}"
+            },
+            {
+              "fieldId": "data",
+              "fieldValue": "={{ $('Code1').item.json.data_agendamento }}"
+            },
+            {
+              "fieldId": "servico",
+              "fieldValue": "={{ $('Code1').item.json.codigo_imovel }}"
+            },
+            {
+              "fieldId": "cliente_nome",
+              "fieldValue": "={{ $('Dados2').item.json.pushName }}"
+            },
+            {
+              "fieldId": "cliente_telefone",
+              "fieldValue": "={{ $('Dados2').item.json.remoteJid }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "agendado"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1712,
+        320
+      ],
+      "id": "edaa838d-b63a-4242-ba87-d7118cba1b36",
+      "name": "Agendar Horário1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "5RchCVzymqLNZUjN",
+          "name": "Supabase imobiliaria-pro-crm"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "numberInputs": 4
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2560,
+        416
+      ],
+      "id": "89d45431-fcf6-4c0e-949c-f6f33ad85a0f",
+      "name": "Merge3"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d46f5dc6-f221-4db8-baea-10d0d13b0513",
+              "name": "mensagem",
+              "value": "={{ $('Code1').item.json.mensagem }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -656,
+        448
+      ],
+      "id": "c35c1e5b-98c1-4e9e-8e92-a29182f51f78",
+      "name": "Mensagem Final"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6f2420c6-290c-4c04-a4c9-58ac14c20a77",
+              "name": "mensagem",
+              "value": "=Perfeito, {{ $('Dados2').item.json.pushName }}! ✅ Sua visita foi agendada com nosso corretor Carlos Mendes para o dia {{ DateTime.fromISO($('Code1').item.json.data_agendamento).toFormat('dd/MM/yyyy') }} às {{ $('Code1').item.json.hora_agendamento.slice(0, 5) }}.\n\nQualquer dúvida, estamos à disposição! 🏠🔑\n\n",
+              "type": "string"
+            },
+            {
+              "id": "1eb3c3ea-996c-4179-a661-d7e2abdbb8df",
+              "name": "",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1904,
+        320
+      ],
+      "id": "63ab8690-3bde-4461-9b0c-f0920f3ce22e",
+      "name": "Mensagem Final3"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        2752,
+        624
+      ],
+      "id": "e33c3ae6-4dc8-4103-ad05-a5ed1c6df9d7",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "9G8o63YzFp0LAQ14",
+          "name": "OpenAi contatozedorolo@gmail.com"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.toolThink",
+      "typeVersion": 1.1,
+      "position": [
+        -1632,
+        768
+      ],
+      "id": "c361d68c-9106-4abb-b3e8-516fac8a6ef0",
+      "name": "Think1"
+    },
+    {
+      "parameters": {
+        "content": "## MENSAGEM WHATSAPP ",
+        "height": 656,
+        "width": 976,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -5200,
+        272
+      ],
+      "typeVersion": 1,
+      "id": "296d71b1-5b81-47d3-a0e8-77032382da00",
+      "name": "Sticky Note9"
+    },
+    {
+      "parameters": {
+        "content": "## TIPO DE MENSAGEM",
+        "height": 656,
+        "width": 1168
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -3184,
+        272
+      ],
+      "typeVersion": 1,
+      "id": "cd0043e3-4ca8-48a6-b809-5439dd6ed536",
+      "name": "Sticky Note10"
+    },
+    {
+      "parameters": {
+        "content": "## AGENTE",
+        "height": 656,
+        "width": 1024,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -2016,
+        256
+      ],
+      "typeVersion": 1,
+      "id": "0b12f42c-5132-4ac5-b79d-e810a4a45979",
+      "name": "Sticky Note11"
+    },
+    {
+      "parameters": {
+        "content": "## É AGENDAMENTO ?",
+        "height": 656,
+        "width": 816,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -992,
+        256
+      ],
+      "typeVersion": 1,
+      "id": "f5e16d6d-b7e7-4f7a-9215-9dd6e6e09b71",
+      "name": "Sticky Note12"
+    },
+    {
+      "parameters": {
+        "content": "## DASHBOARD / HORÁRIO OCUPADO",
+        "height": 880,
+        "width": 2416
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -176,
+        32
+      ],
+      "typeVersion": 1,
+      "id": "2a804b0e-0a8b-45b0-b1e5-cf988569b798",
+      "name": "Sticky Note13"
+    },
+    {
+      "parameters": {
+        "content": "## DIVIDIR MENSAGEM",
+        "height": 576,
+        "width": 1008,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        2240,
+        224
+      ],
+      "typeVersion": 1,
+      "id": "df36677b-fa7e-4595-a414-ff673afd4681",
+      "name": "Sticky Note14"
+    },
+    {
+      "parameters": {
+        "content": "## ENVIANDO MENSAGEM",
+        "height": 576,
+        "width": 544,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        3248,
+        224
+      ],
+      "typeVersion": 1,
+      "id": "c800c867-a885-423d-b8eb-b53c3ce5b76a",
+      "name": "Sticky Note15"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "colaboradores",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "nome",
+              "condition": "ilike",
+              "keyValue": "={{ $('Code1').item.json.corretor }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -32,
+        224
+      ],
+      "id": "8e7a3d16-1687-4d59-80aa-607687cc177c",
+      "name": "Buscar Corretor1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "5RchCVzymqLNZUjN",
+          "name": "Supabase imobiliaria-pro-crm"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## BANCO DE DADOS RAG",
+        "height": 656,
+        "width": 2416,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -2016,
+        912
+      ],
+      "typeVersion": 1,
+      "id": "ce92d47d-8887-40d2-8a74-aa26c7d86bd5",
+      "name": "Sticky Note16"
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "triggerOn": "specificFolder",
+        "folderToWatch": {
+          "__rl": true,
+          "value": "1v2wHOmniuF2HYBX6_lpElDWCauv9NMgO",
+          "mode": "list",
+          "cachedResultName": "RAG IMOBILIARIA",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1v2wHOmniuF2HYBX6_lpElDWCauv9NMgO"
+        },
+        "event": "fileCreated",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDriveTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1920,
+        1200
+      ],
+      "id": "351e8938-26bb-4cb1-8d7d-f48940bddb92",
+      "name": "Arquivo_novo1",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "D0Qiuimqn6mVY0Y4",
+          "name": "Drive fernandoborgescerqueira@gmail.com"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $json.file_id }}",
+          "mode": "id"
+        },
+        "options": {
+          "googleFileConversion": {
+            "conversion": {
+              "docsToFormat": "text/plain",
+              "drawingsToFormat": "application/pdf",
+              "slidesToFormat": "application/pdf"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -1440,
+        1200
+      ],
+      "id": "87f3f28c-2eb5-4385-bffb-4f0cf336cdf2",
+      "name": "Download1",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "D0Qiuimqn6mVY0Y4",
+          "name": "Drive fernandoborgescerqueira@gmail.com"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "45d813ce-40d4-40bc-afa3-9b7bd0ab885f",
+              "name": "file_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "306998bf-3814-423a-a141-30796f0debb5",
+              "name": "file_name",
+              "value": "={{ $json.name }}",
+              "type": "string"
+            },
+            {
+              "id": "d6226937-4be8-43d4-9886-abc043436a81",
+              "name": "file_type",
+              "value": "={{ $json.mimeType }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1712,
+        1200
+      ],
+      "id": "e2854d77-157f-4d2c-920f-b73ecd1185ff",
+      "name": "Dados3"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Dados3').item.json.file_type }}",
+                    "rightValue": "application/vnd.google-apps.spreadsheet",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "202b5f05-9aff-4c1a-afc1-26399ed92a59"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        -1200,
+        1200
+      ],
+      "id": "22f9568d-af51-431c-8aef-54e95530f45d",
+      "name": "Tipo_de_arquivo1"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        -576,
+        928
+      ],
+      "id": "c6905cc6-eb42-4501-8689-24e53f768766",
+      "name": "Aggregate1"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        -848,
+        928
+      ],
+      "id": "ce014188-682d-411f-8c0c-7a6354269fdd",
+      "name": "Extract from CSV1"
+    },
+    {
+      "parameters": {
+        "fieldsToSummarize": {
+          "values": [
+            {
+              "aggregation": "concatenate",
+              "field": "data"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.summarize",
+      "typeVersion": 1.1,
+      "position": [
+        -352,
+        928
+      ],
+      "id": "c53f4df7-2671-4a45-a5cf-841642b653dc",
+      "name": "Summarize1"
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "tableName": "imobiliaria_rag",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePGVector",
+      "typeVersion": 1.3,
+      "position": [
+        48,
+        928
+      ],
+      "id": "ebfc2781-e279-4cb3-83a1-c09c60607e5a",
+      "name": "JSON Loader1",
+      "credentials": {
+        "postgres": {
+          "id": "ePUs2YSVB2N3DTa8",
+          "name": "Postgres PG Vector"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -64,
+        1168
+      ],
+      "id": "a3b5ee1d-3839-49ed-ac02-173dbd360344",
+      "name": "Embeddings OpenAI2",
+      "credentials": {
+        "openAiApi": {
+          "id": "9G8o63YzFp0LAQ14",
+          "name": "OpenAi contatozedorolo@gmail.com"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chunkSize": 10000,
+        "chunkOverlap": 200,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [
+        192,
+        1344
+      ],
+      "id": "e9cdaf07-403d-400d-91d9-7463d413d52c",
+      "name": "Recursive Character Text Splitter"
+    },
+    {
+      "parameters": {
+        "textSplittingMode": "custom",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "file_id",
+                "value": "={{ $('Dados3').item.json.file_id }}"
+              },
+              {
+                "name": "file_name",
+                "value": "={{ $('Dados3').item.json.file_name }}"
+              }
+            ]
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        64,
+        1152
+      ],
+      "id": "0f8b7e5c-a024-4e0b-9ad6-10269eafd14c",
+      "name": "Default Data Loader1"
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Use esta ferramenta para buscar e encontrar imóveis disponíveis no banco de dados da imobiliária. É a ferramenta principal para responder perguntas de clientes sobre o inventário de imóveis, como \"procuro casas com piscina\" ou \"quais apartamentos de 2 quartos você tem no bairro X?\". A ferramenta retorna uma lista de imóveis relevantes com todos os seus detalhes.\n",
+        "tableName": "imobiliaria_rag",
+        "topK": 8,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePGVector",
+      "typeVersion": 1.3,
+      "position": [
+        -1376,
+        640
+      ],
+      "id": "f31e83fc-13a6-4b3b-b7ba-f32bdd20bf44",
+      "name": "Postgres PGVector Store1",
+      "credentials": {
+        "postgres": {
+          "id": "ePUs2YSVB2N3DTa8",
+          "name": "Postgres PG Vector"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -1184,
+        768
+      ],
+      "id": "e7b89d50-101a-4a81-abc2-f2aac099c7d4",
+      "name": "Embeddings OpenAI3",
+      "credentials": {
+        "openAiApi": {
+          "id": "9G8o63YzFp0LAQ14",
+          "name": "OpenAi contatozedorolo@gmail.com"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Code1').item.json.intenção }}",
+                    "rightValue": "agendamento_confirmado",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "72e1af3d-ca64-49aa-904f-7aa717b89aa9"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "995d46a6-ad94-44ce-ae04-a9bc9be54028",
+                    "leftValue": "={{ $('Code1').item.json.intenção }}",
+                    "rightValue": "informar_imoveis",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "84652a3b-da69-4c17-9be7-eb6fa71f8483",
+                    "leftValue": "={{ $('Code1').item.json.intenção }}",
+                    "rightValue": "reagendamento_solicitado",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "66bbed8e-8d6b-4b29-8a9a-6b1548cc9e8c",
+                    "leftValue": "=",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        -416,
+        416
+      ],
+      "id": "5a6b0dbf-ba89-4a25-965e-3330ba203ca2",
+      "name": "Switch1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Lê a mensagem da IA via referência explícita ao Code1\n// Independente de qual nó passou o dado antes\nconst mensagem = $('Code1').first().json.mensagem;\nlet imoveis;\n\nif (Array.isArray(mensagem)) {\n  imoveis = mensagem;\n} else if (typeof mensagem === \"string\") {\n  try {\n    const parsed = JSON.parse(mensagem);\n    imoveis = Array.isArray(parsed) ? parsed : [{ imagem_url: \"\", texto: mensagem }];\n  } catch (e) {\n    imoveis = [{ imagem_url: \"\", texto: mensagem }];\n  }\n} else {\n  imoveis = [];\n}\n\n// Garantir pelo menos 1 item\nif (imoveis.length === 0) {\n  imoveis = [{ imagem_url: \"\", texto: \"\" }];\n}\n\nreturn imoveis.map(function(imovel) { return { json: imovel }; });\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -48,
+        640
+      ],
+      "id": "cf281aaf-867a-4f73-b0b8-319642dcab16",
+      "name": "Parse JSON da IA1"
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        272,
+        640
+      ],
+      "id": "967894fa-d4f8-4f4d-8389-5aa6a53e873d",
+      "name": "Loop Para Cada Imóvel1"
+    },
+    {
+      "parameters": {
+        "resource": "messages-api",
+        "operation": "send-image",
+        "instanceName": "={{ $('Dados2').item.json.instance }}",
+        "remoteJid": "={{ $('Dados2').item.json.remoteJid }}",
+        "media": "={{ $json.imagem_url }}",
+        "caption": "={{ $json.texto }}",
+        "options_message": {
+          "delay": 1500
+        }
+      },
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        992,
+        656
+      ],
+      "id": "6cacfb91-23a4-4fcf-a722-90553bd58593",
+      "name": "Enviar Card do Imóvel1",
+      "credentials": {
+        "evolutionApi": {
+          "id": "kHphjQxReDfvc71y",
+          "name": "Evolution Alavancaai"
+        }
+      },
+      "continueOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "messages-api",
+        "instanceName": "={{ $('Dados2').first().json.instance }}",
+        "remoteJid": "={{ $('Dados2').first().json.remoteJid }}",
+        "messageText": "={{ $('Finalizar Loop1').first().json.mensagem_final }}",
+        "options_message": {
+          "delay": 2000
+        }
+      },
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        752,
+        544
+      ],
+      "id": "a15d0e1c-5c05-4e6a-9f61-55e314721a46",
+      "name": "Call-to-Action1",
+      "credentials": {
+        "evolutionApi": {
+          "id": "kHphjQxReDfvc71y",
+          "name": "Evolution Alavancaai"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pega os dados do cliente de forma segura\nconst dadosIniciais = $('Dados2').first().json;\n\n// Mensagem call-to-action após os cards\nconst titulo = \"*Aqui estão os imóveis que selecionei para você!* 🏡\";\nconst corpo1 = \"A jornada para um novo lar pode parecer complexa, mas meu trabalho é torná-la simples e segura para você. O primeiro passo é visitar e ver qual deles faz seu coração bater mais forte.\";\nconst corpo2 = \"Me informe a referência do imóvel que despertou seu interesse e eu cuido de todo o agendamento da visita. Simples assim.\";\nconst fechamento = \"*Qual deles vamos conhecer primeiro?*\";\n\nconst mensagemFormatada = `${titulo}\\n\\n${corpo1}\\n\\n${corpo2}\\n\\n${fechamento}`;\n\nreturn [{\n  json: {\n    mensagem_final: mensagemFormatada,\n    instance: dadosIniciais.instance,\n    remoteJid: dadosIniciais.remoteJid\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        512,
+        544
+      ],
+      "id": "3cb22125-9491-4305-a03e-de89d082361d",
+      "name": "Finalizar Loop1"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -1952,
+        768
+      ],
+      "id": "c68c3095-4493-42d0-a900-f41c5b1ddf4f",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "iXwNxQ9OeJ5Nmk1Y",
+          "name": "Gemini contatozedorolo@gmail.com."
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "agendamentos",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "horario",
+              "fieldValue": "={{ $('Code1').item.json.hora_agendamento }}"
+            },
+            {
+              "fieldId": "data",
+              "fieldValue": "={{ $('Code1').item.json.data_agendamento }}"
+            },
+            {
+              "fieldId": "servico",
+              "fieldValue": "={{ $('Code1').item.json.codigo_imovel }}"
+            },
+            {
+              "fieldId": "cliente_nome",
+              "fieldValue": "={{ $('Dados2').item.json.pushName }}"
+            },
+            {
+              "fieldId": "cliente_telefone",
+              "fieldValue": "={{ $('Dados2').item.json.remoteJid }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "agendado"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1952,
+        512
+      ],
+      "id": "892728a9-9466-45fe-b8ec-b6ae3121fe91",
+      "name": "Reagendar Visita1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "5RchCVzymqLNZUjN",
+          "name": "Supabase imobiliaria-pro-crm"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "65ef0120-d0e7-4b3a-97ca-4e6aa32754a2",
+              "name": "mensagem",
+              "value": "=✅ Remarcado com sucesso, {{ $('Dados2').item.json.pushName }}! Sua visita ao imóvel *{{ $('Code1').item.json.codigo_imovel }}* foi reagendada para {{ $('Code1').item.json.data_agendamento.split('-').reverse().join('/') }} às {{ $('Code1').item.json.hora_agendamento.slice(0, 5) }} com o corretor Carlos Mendes. Qualquer dúvida, é só chamar! 🏠",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2304,
+        544
+      ],
+      "id": "c6b2dc78-4362-4e1a-b460-c74da243870d",
+      "name": "Mensagem Reagendamento1"
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "tableId": "agendamentos",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "cliente_telefone",
+              "condition": "eq",
+              "keyValue": "={{ $('Dados2').item.json.remoteJid }}"
+            },
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "agendado"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1424,
+        528
+      ],
+      "id": "4318e2c5-a0fa-4218-b455-3357f46dac39",
+      "name": "Cancelar Agendamento Antigo1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "5RchCVzymqLNZUjN",
+          "name": "Supabase imobiliaria-pro-crm"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Use esta ferramenta para mover o lead entre as etapas do funil de vendas (Kanban).\n\nQUANDO USAR — mova imediatamente quando:\n- Cliente pediu para ver imóveis → status: \"Contato Inicial\"\n- Proposta de compra enviada → status: \"Proposta Enviada\"\n- Cliente vai enviar documentação → status: \"Documentação/Análise\"\n- Contrato assinado → status: \"Fechado/Contrato\"\n- Cliente desistiu ou não respondeu → status: \"Perdido\"\n\nNÃO USE para:\n- \"Novo Lead\" — criado automaticamente no primeiro contato pelo sistema\n- \"Visita Marcada\" — movido automaticamente pelo banco ao criar agendamento\n\nIMPORTANTE: O banco protege contra regressão — um lead NUNCA volta para etapa anterior.\nSe o lead já estiver em \"Visita Marcada\" e você chamar com \"Contato Inicial\", o banco ignora.",
+        "operation": "update",
+        "tableId": "leads",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "phone",
+              "condition": "eq",
+              "keyValue": "={{ $('Dados2').item.json.remoteJid }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $fromAI('status', 'Etapa do funil: Novo Lead | Contato Inicial | Visita Marcada | Proposta Enviada | Documentação/Análise | Fechado/Contrato | Perdido', 'string') }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabaseTool",
+      "typeVersion": 1,
+      "position": [
+        -1472,
+        736
+      ],
+      "id": "26dab883-5fe1-49c3-bf86-85606d0c869f",
+      "name": "Atualizar Pipeline Lead",
+      "credentials": {
+        "supabaseApi": {
+          "id": "5RchCVzymqLNZUjN",
+          "name": "Supabase imobiliaria-pro-crm"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "leads",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "phone",
+              "condition": "eq",
+              "keyValue": "={{ $('Dados2').item.json.remoteJid }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -4064,
+        528
+      ],
+      "id": "392bd00e-408f-4252-b47e-e762ddb51eda",
+      "name": "Check Lead Existe",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "5RchCVzymqLNZUjN",
+          "name": "Supabase imobiliaria-pro-crm"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "ba982f43-8a83-45f1-a675-58698585b8fb",
+              "leftValue": "={{ $json.id ?? '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -3856,
+        528
+      ],
+      "id": "0661b4c2-7445-4251-9cd0-b0e9c0bf258d",
+      "name": "É Novo Lead?"
+    },
+    {
+      "parameters": {
+        "tableId": "leads",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "name",
+              "fieldValue": "={{ $('Dados2').item.json.pushName }}"
+            },
+            {
+              "fieldId": "phone",
+              "fieldValue": "={{ $('Dados2').item.json.remoteJid }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "Novo Lead"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -3632,
+        432
+      ],
+      "id": "766389d2-b201-4e4d-b40a-f560daac0c42",
+      "name": "Inserir Novo Lead",
+      "credentials": {
+        "supabaseApi": {
+          "id": "5RchCVzymqLNZUjN",
+          "name": "Supabase imobiliaria-pro-crm"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -3408,
+        528
+      ],
+      "id": "280ec7f9-cc15-4a7f-ba0d-a7158ab270a6",
+      "name": "Merge Início"
+    },
+    {
+      "parameters": {
+        "content": "## 🚀 PRIMEIRO CONTATO\nTodo lead é registrado no Supabase com `status='Novo Lead'` ANTES da IA processar.\n\nFluxo: Dados2 → Check Lead → (se novo) Inserir Lead → Tipo de Mensagem\n\nIsso garante que qualquer mensagem cria o card no pipeline.",
+        "width": 400,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -4064,
+        704
+      ],
+      "id": "9f3b99bd-7b31-4818-b74f-d1f00a24bc79",
+      "name": "Nota Primeiro Contato"
+    },
+    {
+      "parameters": {
+        "content": "## CADASTRAR LEAD",
+        "height": 656,
+        "width": 1040,
+        "color": "#433228"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -4224,
+        272
+      ],
+      "typeVersion": 1,
+      "id": "8f1fb239-8075-490a-92a9-a7fa6728e370",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "dashboard-imobiliaria",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -5136,
+        528
+      ],
+      "id": "8cbd152f-9511-47ec-a84c-06a66df5cce6",
+      "name": "Webhook",
+      "webhookId": "d5cc4a39-06ce-44ad-9cbf-2b9e522b84e6"
+    },
+    {
+      "parameters": {
+        "content": "## 📧 CAPTURA DE EMAIL\nQuando cliente pede para ver imóveis:\n1. Camila pede o email de forma natural\n2. Cliente informa → tool `Salvar Email do Lead` faz UPDATE na tabela `leads`\n3. Email aparece no card do lead no dashboard\n\nNão bloqueia o atendimento se cliente não quiser informar.",
+        "width": 400,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -2976,
+        1264
+      ],
+      "id": "7d9ddf5a-385b-4f72-a95c-943c386779d8",
+      "name": "Nota Email Capture"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Use esta ferramenta IMEDIATAMENTE após confirmar um agendamento de visita.\n\nSalva um resumo da visita no card do lead no dashboard (campo Observações).\n\nO resumo deve conter:\n- Referência do imóvel escolhido (ex: CA659, AP1091)\n- Data e hora da visita\n- Nome do corretor\n\nExemplo de descrição: \"Visita agendada para o imóvel CA659 em 25/03/2026 às 15h com Carlos Mendes.\" ",
+        "operation": "update",
+        "tableId": "leads",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "phone",
+              "condition": "eq",
+              "keyValue": "={{ $('Dados2').first().json.remoteJid }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "description",
+              "fieldValue": "={{ $fromAI('descricao', 'Resumo da visita: imóvel escolhido, data, hora e corretor. Ex: Visita agendada para o imóvel CA659 em 25/03/2026 às 15h com Carlos Mendes.', 'string') }}"
+            },
+            {
+              "fieldId": "link_imovel_interesse",
+              "fieldValue": "={{ $fromAI('codigo_imovel', 'Apenas o código de referência do imóvel, ex: CA659', 'string') }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabaseTool",
+      "typeVersion": 1,
+      "position": [
+        -2528,
+        1088
+      ],
+      "id": "ddb01686-f66c-40d7-9023-6e1aa1794a76",
+      "name": "Salvar Resumo da Visita",
+      "credentials": {
+        "supabaseApi": {
+          "id": "5RchCVzymqLNZUjN",
+          "name": "Supabase imobiliaria-pro-crm"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## 📋 RESUMO DA VISITA\nApós agendamento confirmado:\n→ Tool `Salvar Resumo da Visita`\n→ Salva em `leads.description` (campo Observações no card)\n→ Salva código do imóvel em `leads.link_imovel_interesse`\n\nEm reagendamento: atualiza automaticamente.",
+        "height": 150,
+        "width": 380,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -2528,
+        1280
+      ],
+      "id": "d74ca42e-eceb-4c89-8d10-c82c6bb2966a",
+      "name": "Nota Resumo Visita"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "leads",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "phone",
+              "condition": "eq",
+              "keyValue": "={{ $('Dados2').item.json.remoteJid }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1280,
+        368
+      ],
+      "id": "99b2394d-d570-4531-97b4-acac146b2a81",
+      "name": "Verificar Qualificação",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "5RchCVzymqLNZUjN",
+          "name": "Supabase imobiliaria-pro-crm"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "d5411972-ab71-4c8a-8b77-0e0af8c2687c",
+              "leftValue": "={{ ($json.email ?? '').toString().trim() }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1744,
+        512
+      ],
+      "id": "2aa2e9d0-e302-4042-8ff8-b84bc21bc520",
+      "name": "Qualificado?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "385f6560-10c4-4e7b-9f31-8845007600cd",
+              "name": "mensagem",
+              "value": "=Olá, {{ $('Dados2').item.json.pushName }}! 😊 Bem-vindo à *Imobiliária Neemias*! 🏠\n\nPara iniciar seu atendimento personalizado, preciso de algumas informações rápidas:\n\n👤 *Seu nome completo*\n📧 *Seu melhor email*\n\nAssim consigo te oferecer o melhor atendimento! 🔑",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2096,
+        656
+      ],
+      "id": "02a8d8b7-09f7-40c4-80b9-4a6c9340862e",
+      "name": "Mensagem Qualificação Inicial"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Use esta ferramenta quando o cliente informar seu nome completo e/ou email.\n\nQUANDO USAR:\n- O cliente responder à pergunta inicial com nome e/ou email\n- O cliente atualizar seu nome ou email em qualquer momento\n\nAPÓS SALVAR:\n1. Confirme: \"Obrigado, [nome]! 😊 Seus dados foram salvos.\"\n2. Use IMEDIATAMENTE a ferramenta \"Atualizar Pipeline Lead\" com status: \"Contato Inicial\"\n3. Dê as boas-vindas e pergunte como pode ajudar",
+        "operation": "update",
+        "tableId": "leads",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "phone",
+              "condition": "eq",
+              "keyValue": "={{ $('Dados2').first().json.remoteJid }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "name",
+              "fieldValue": "={{ $fromAI('nome_completo', 'Nome completo do cliente. Use o valor atual se não foi informado um novo.', 'string') }}"
+            },
+            {
+              "fieldId": "email",
+              "fieldValue": "={{ $fromAI('email', 'Email do cliente, ex: nome@email.com', 'string') }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabaseTool",
+      "typeVersion": 1,
+      "position": [
+        -2720,
+        1088
+      ],
+      "id": "f820c384-1ffa-44c6-8c05-8733f5e3e572",
+      "name": "Salvar Qualificação Inicial",
+      "credentials": {
+        "supabaseApi": {
+          "id": "5RchCVzymqLNZUjN",
+          "name": "Supabase imobiliaria-pro-crm"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## 🔒 GATE QUALIFICAÇÃO INICIAL\nAntes de qualquer atendimento:\n→ Verifica se lead tem email\n→ Se NÃO: pede nome completo + email\n→ Se SIM: segue para atendimento\n\nIA salva via tool 'Salvar Qualificação Inicial'",
+        "height": 150,
+        "width": 360
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1664,
+        720
+      ],
+      "id": "bd544c0a-7193-4f40-8450-5ec62f7725c4",
+      "name": "Nota Gate Qualificação"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": false,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "2f387b58-5e97-485c-bb9d-13469ff2a301",
+              "leftValue": "={{ $('Dados2').item.json.conversation ?? '' }}",
+              "rightValue": "@",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2112,
+        512
+      ],
+      "id": "ff336565-a7d2-411e-a2cb-7fa82a3f0da8",
+      "name": "Mensagem Tem Email?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "50ea5ea2-eaee-46a6-8ad9-1508f0d6e850",
+              "leftValue": "={{ $json.body?.source ?? $json.source ?? '' }}",
+              "rightValue": "Botão Testar Dashboard",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -4896,
+        528
+      ],
+      "id": "2eb5995b-3c1f-407a-a439-093d0c3a7e44",
+      "name": "É Teste?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\": \"ok\", \"message\": \"Teste recebido com sucesso\"}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -4672,
+        400
+      ],
+      "id": "e863020a-6a02-40c6-89a1-78864e06f122",
+      "name": "Responder Teste OK"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "dashboard-send-message",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -4672,
+        1152
+      ],
+      "id": "1c22142c-8f69-443c-90b6-4d2dfdd69182",
+      "name": "Webhook Dashboard Send",
+      "webhookId": "4da4f342-7aa9-40ab-a91d-c3ad9e29b914"
+    },
+    {
+      "parameters": {
+        "resource": "messages-api",
+        "instanceName": "imobiliaria",
+        "remoteJid": "={{ $json.body.phone }}",
+        "messageText": "={{ $json.body.message }}",
+        "options_message": {
+          "delay": 500
+        }
+      },
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        -4448,
+        1152
+      ],
+      "id": "102ec065-4876-404c-b31b-b1acf4f71d84",
+      "name": "Enviar via Evolution (Dashboard)",
+      "credentials": {
+        "evolutionApi": {
+          "id": "kHphjQxReDfvc71y",
+          "name": "Evolution Alavancaai"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\": \"sent\"}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -4240,
+        1152
+      ],
+      "id": "59ab4e43-3870-4222-b212-fd22d18a0bc0",
+      "name": "Responder Dashboard OK"
+    },
+    {
+      "parameters": {
+        "content": "## 🔧 V.7.1.0 — 3 AJUSTES\n**1. Botão Testar** → source='Botão Testar Dashboard' → 200 OK sem gravar BD\n**2. Pusher** → canal: `whatsapp-messages`, evento: `new-message`\n**3. dashboard-send-message** → recebe msg do painel → envia via Evolution → espelha no Pusher",
+        "width": 500,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -5008,
+        80
+      ],
+      "id": "a14a18a5-5ee0-4f36-ba44-ddf568d04b35",
+      "name": "Nota V710"
+    },
+    {
+      "parameters": {
+        "tableId": "webhook_eventos",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "webhook_nome",
+              "fieldValue": "whatsapp"
+            },
+            {
+              "fieldId": "evento",
+              "fieldValue": "whatsapp_mensagem"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "recebido"
+            },
+            {
+              "fieldId": "payload",
+              "fieldValue": "={{ JSON.stringify({ phone: $('Dados2').item.json.remoteJid, sender_name: $('Dados2').item.json.pushName, message: $('Dados2').item.json.conversation ?? '', direction: 'cliente', timestamp: $now.toISO() }) }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -4448,
+        736
+      ],
+      "id": "f983de05-2827-4a47-a807-5f9eb2dace9f",
+      "name": "Salvar Msg Cliente",
+      "credentials": {
+        "supabaseApi": {
+          "id": "5RchCVzymqLNZUjN",
+          "name": "Supabase imobiliaria-pro-crm"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "tableId": "webhook_eventos",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "webhook_nome",
+              "fieldValue": "whatsapp"
+            },
+            {
+              "fieldId": "evento",
+              "fieldValue": "whatsapp_mensagem"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "enviado"
+            },
+            {
+              "fieldId": "payload",
+              "fieldValue": "={{ JSON.stringify({ phone: $('Dados2').first().json.remoteJid, sender_name: 'Camila (IA)', message: $('Loop Over Items1').item.json.message ?? '', direction: 'camila', timestamp: $now.toISO() }) }}\n"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3616,
+        720
+      ],
+      "id": "951f037e-2d41-4cbe-9096-984205c20e7c",
+      "name": "Salvar Msg Camila",
+      "credentials": {
+        "supabaseApi": {
+          "id": "5RchCVzymqLNZUjN",
+          "name": "Supabase imobiliaria-pro-crm"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "tableId": "webhook_eventos",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "webhook_nome",
+              "fieldValue": "whatsapp"
+            },
+            {
+              "fieldId": "evento",
+              "fieldValue": "whatsapp_mensagem"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "enviado"
+            },
+            {
+              "fieldId": "payload",
+              "fieldValue": "={{ JSON.stringify({ phone: $json.body?.phone ?? '', sender_name: 'Corretor (Dashboard)', message: $json.body?.message ?? '', direction: 'corretor', timestamp: $now.toISO() }) }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -4240,
+        1296
+      ],
+      "id": "6429112d-135c-4d58-ba6e-7247981b4e55",
+      "name": "Salvar Msg Dashboard",
+      "credentials": {
+        "supabaseApi": {
+          "id": "5RchCVzymqLNZUjN",
+          "name": "Supabase imobiliaria-pro-crm"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "content": "## 📡 ESPELHAMENTO — Supabase Realtime\nTroca Pusher por INSERT na tabela `webhook_eventos`.\nLovable escuta via Supabase Realtime (já configurado).\n\n**Colunas necessárias:**\nphone, sender_name, message, direction, timestamp\n\n→ Msg Cliente salva após Dados2\n→ Msg Camila salva após Enviar Mensagem1\n→ Msg Corretor salva após Evolution (Dashboard)",
+        "height": 568,
+        "width": 1272,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -5200,
+        928
+      ],
+      "id": "cb94974e-eb11-4c24-8df5-4678c9a01ece",
+      "name": "Nota Realtime"
+    },
+    {
+      "parameters": {
+        "tableId": "webhook_eventos",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "webhook_nome",
+              "fieldValue": "whatsapp"
+            },
+            {
+              "fieldId": "evento",
+              "fieldValue": "whatsapp_mensagem"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "enviado"
+            },
+            {
+              "fieldId": "payload",
+              "fieldValue": "={{ JSON.stringify({ phone: $('Dados2').first().json.remoteJid, sender_name: 'Camila (IA)', message: $('Loop Para Cada Imóvel1').item.json.texto ?? '', image_url: $('Loop Para Cada Imóvel1').item.json.imagem_url ?? '', direction: 'camila', timestamp: $now.toISO() }) }}\n"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1232,
+        656
+      ],
+      "id": "2b101c14-c825-4475-94a0-594f602e0152",
+      "name": "Salvar Msg Card",
+      "credentials": {
+        "supabaseApi": {
+          "id": "5RchCVzymqLNZUjN",
+          "name": "Supabase imobiliaria-pro-crm"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "tableId": "webhook_eventos",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "webhook_nome",
+              "fieldValue": "whatsapp"
+            },
+            {
+              "fieldId": "evento",
+              "fieldValue": "whatsapp_mensagem"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "enviado"
+            },
+            {
+              "fieldId": "payload",
+              "fieldValue": "={{ JSON.stringify({ phone: $('Dados2').first().json.remoteJid, sender_name: 'Camila (IA)', message: $('Finalizar Loop1').first().json.mensagem_final ?? '', direction: 'camila', timestamp: $now.toISO() }) }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        992,
+        544
+      ],
+      "id": "85cfe250-7787-4afb-b0cc-db575a9ad399",
+      "name": "Salvar Msg CTA",
+      "credentials": {
+        "supabaseApi": {
+          "id": "5RchCVzymqLNZUjN",
+          "name": "Supabase imobiliaria-pro-crm"
+        }
+      },
+      "continueOnFail": true
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Gatilho a cada hora": {
+      "main": [
+        [
+          {
+            "node": "Buscar Agendamentos de Hoje",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Agendamentos de Hoje": {
+      "main": [
+        [
+          {
+            "node": "Tem agendamentos?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tem agendamentos?": {
+      "main": [
+        [
+          {
+            "node": "Montar Lembrete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar Lembrete": {
+      "main": [
+        [
+          {
+            "node": "Enviar Lembrete WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Lembrete WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Marcar Lembrete Enviado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dados2": {
+      "main": [
+        [
+          {
+            "node": "Check Lead Existe",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Salvar Msg Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redis Chat Memory1": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mensagem de Texto1": {
+      "main": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tipo de Mensagem1": {
+      "main": [
+        [
+          {
+            "node": "Mensagem de Texto1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Base ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Base ": {
+      "main": [
+        [
+          {
+            "node": "Audio1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audio1": {
+      "main": [
+        [
+          {
+            "node": "Groq1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mensagem de Audio1": {
+      "main": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq1": {
+      "main": [
+        [
+          {
+            "node": "Mensagem de Audio1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Output Parser1": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Parser1",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parser1": {
+      "main": [
+        [
+          {
+            "node": "Split Out1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items1": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Enviar Mensagem1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Mensagem1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Salvar Msg Camila",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "Mensagem Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Agenda1": {
+      "main": [
+        [
+          {
+            "node": "Verificar Disponibilidade1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mensagem Horário Ocupado1": {
+      "main": [
+        [
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Disponibilidade1": {
+      "main": [
+        [
+          {
+            "node": "Mensagem Horário Ocupado1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Agendar Horário1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agendar Horário1": {
+      "main": [
+        [
+          {
+            "node": "Mensagem Final3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge3": {
+      "main": [
+        [
+          {
+            "node": "Parser1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mensagem Final": {
+      "main": [
+        [
+          {
+            "node": "Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mensagem Final3": {
+      "main": [
+        [
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Parser1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Think1": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Corretor1": {
+      "main": [
+        [
+          {
+            "node": "Verificar Agenda1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Arquivo_novo1": {
+      "main": [
+        [
+          {
+            "node": "Dados3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download1": {
+      "main": [
+        [
+          {
+            "node": "Tipo_de_arquivo1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dados3": {
+      "main": [
+        [
+          {
+            "node": "Download1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tipo_de_arquivo1": {
+      "main": [
+        [
+          {
+            "node": "Extract from CSV1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate1": {
+      "main": [
+        [
+          {
+            "node": "Summarize1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from CSV1": {
+      "main": [
+        [
+          {
+            "node": "Aggregate1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize1": {
+      "main": [
+        [
+          {
+            "node": "JSON Loader1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI2": {
+      "ai_embedding": [
+        [
+          {
+            "node": "JSON Loader1",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recursive Character Text Splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Default Data Loader1",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader1": {
+      "ai_document": [
+        [
+          {
+            "node": "JSON Loader1",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres PGVector Store1": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI3": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Postgres PGVector Store1",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch1": {
+      "main": [
+        [
+          {
+            "node": "Buscar Corretor1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Parse JSON da IA1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Cancelar Agendamento Antigo1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Parse JSON da IA1": {
+      "main": [
+        [
+          {
+            "node": "Loop Para Cada Imóvel1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Para Cada Imóvel1": {
+      "main": [
+        [
+          {
+            "node": "Finalizar Loop1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar Card do Imóvel1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Card do Imóvel1": {
+      "main": [
+        [
+          {
+            "node": "Salvar Msg Card",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalizar Loop1": {
+      "main": [
+        [
+          {
+            "node": "Call-to-Action1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reagendar Visita1": {
+      "main": [
+        [
+          {
+            "node": "Mensagem Reagendamento1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mensagem Reagendamento1": {
+      "main": [
+        [
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Cancelar Agendamento Antigo1": {
+      "main": [
+        [
+          {
+            "node": "Reagendar Visita1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Atualizar Pipeline Lead": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Lead Existe": {
+      "main": [
+        [
+          {
+            "node": "É Novo Lead?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "É Novo Lead?": {
+      "main": [
+        [
+          {
+            "node": "Inserir Novo Lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge Início",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Inserir Novo Lead": {
+      "main": [
+        [
+          {
+            "node": "Merge Início",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Início": {
+      "main": [
+        [
+          {
+            "node": "Verificar Qualificação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "É Teste?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Salvar Resumo da Visita": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Qualificação": {
+      "main": [
+        [
+          {
+            "node": "Qualificado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qualificado?": {
+      "main": [
+        [
+          {
+            "node": "Tipo de Mensagem1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mensagem Tem Email?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mensagem Qualificação Inicial": {
+      "main": [
+        [
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Salvar Qualificação Inicial": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mensagem Tem Email?": {
+      "main": [
+        [
+          {
+            "node": "Tipo de Mensagem1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mensagem Qualificação Inicial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "É Teste?": {
+      "main": [
+        [
+          {
+            "node": "Responder Teste OK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Dados2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Dashboard Send": {
+      "main": [
+        [
+          {
+            "node": "Enviar via Evolution (Dashboard)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar via Evolution (Dashboard)": {
+      "main": [
+        [
+          {
+            "node": "Responder Dashboard OK",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Salvar Msg Dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Salvar Msg Card": {
+      "main": [
+        [
+          {
+            "node": "Loop Para Cada Imóvel1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call-to-Action1": {
+      "main": [
+        [
+          {
+            "node": "Salvar Msg CTA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "2a4dd25d-dffe-4601-b3da-2b7a8bc429a1",
+  "meta": {
+    "instanceId": "ebe9cf039db837b73e2f1c7fccacf4df2f9d1ae29ba951bd79cdf191508382ac"
+  },
+  "id": "7X2wFEHqx4iq6L84",
+  "tags": []
+}
