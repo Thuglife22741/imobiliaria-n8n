@@ -335,7 +335,7 @@ async function agenteCamila(state: CamilaState): Promise<Partial<CamilaState>> {
   log.info("Invocando agente Camila (Gemini + React)");
 
   const llm = new ChatGoogleGenerativeAI({
-    model: "gemini-1.5-flash",
+    model: "gemini-1.5-pro",
     temperature: 0.1,
     apiKey: process.env.GOOGLE_GEMINI_API_KEY,
   });
