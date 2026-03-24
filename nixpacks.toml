@@ -1,10 +1,8 @@
-providers = ['bun']
-
 [phases.setup]
-nixPkgs = ['bun']
+nixPkgs = ['bun', 'nodejs_20']
 
 [phases.install]
-cmds = ['bun install --no-save']
+cmds = ['bun install']
 
 [start]
 cmd = 'bun run start'
