@@ -1,12 +1,13 @@
 import { OpenAIEmbeddings } from "@langchain/openai";
-import { PGVectorStore } from "@langchain/community/vectorstores/pgvector";
+import { SupabaseVectorStore } from "@langchain/community/vectorstores/supabase";
+import { createClient } from "@supabase/supabase-js";
 import { createChildLogger } from "../lib/logger";
 
 // ---------------------------------------------------------------------------
 // Constantes — espelham os parâmetros do nó "Postgres PGVector Store1" do n8n
 // ---------------------------------------------------------------------------
 
-/** Tabela PGVector no Easypanel — nome exato da tabela de embeddings */
+/** Tabela PGVector no Supabase — nome exato da tabela de embeddings */
 const TABELA_RAG = "imobiliaria_rag";
 
 /** Colunas padrão da tabela (geradas pela extensão pgvector do Supabase) */
@@ -24,16 +25,17 @@ const TOP_K_RESULTADOS = 5;
 // Singleton — evita criar conexão nova a cada busca
 // ---------------------------------------------------------------------------
 
-let _vectorStore: PGVectorStore | null = null;
+let _vectorStore: SupabaseVectorStore | null = null;
 
-async function obterVectorStore(): Promise<PGVectorStore> {
+async function obterVectorStore(): Promise<SupabaseVectorStore> {
   if (_vectorStore) return _vectorStore;
 
   const log = createChildLogger({ service: "rag", operacao: "obterVectorStore" });
 
-  const dbUrl = process.env.SUPABASE_DB_URL;
-  if (!dbUrl) {
-    throw new Error("SUPABASE_DB_URL não configurado no .env (necessário para o PGVector)");
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error("SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY não configurado no .env");
   }
 
   const openaiKey = process.env.OPENAI_API_KEY;
@@ -41,27 +43,22 @@ async function obterVectorStore(): Promise<PGVectorStore> {
     throw new Error("OPENAI_API_KEY não configurado no .env (necessário para embeddings)");
   }
 
-  log.info({ tabela: TABELA_RAG, modelo: MODELO_EMBEDDINGS }, "Inicializando PGVectorStore");
+  log.info({ tabela: TABELA_RAG, modelo: MODELO_EMBEDDINGS }, "Inicializando SupabaseVectorStore");
 
   const embeddings = new OpenAIEmbeddings({
     model: MODELO_EMBEDDINGS,
     apiKey: openaiKey,
   });
 
-  _vectorStore = await PGVectorStore.initialize(embeddings, {
-    postgresConnectionOptions: {
-      connectionString: dbUrl,
-    },
-    tableName: TABELA_RAG,          // ← tabela exata no Easypanel
-    columns: {
-      contentColumnName: COLUNA_CONTEUDO,
-      metadataColumnName: COLUNA_METADATA,
-      vectorColumnName: COLUNA_EMBEDDING,
-    },
-    // distanceStrategy: "cosine" (padrão — mesma do nó PGVector no n8n)
+  const client = createClient(supabaseUrl, supabaseKey);
+
+  _vectorStore = new SupabaseVectorStore(embeddings, {
+    client,
+    tableName: TABELA_RAG,
+    queryName: "match_documents", // Nome padrão da RPC no Supabase para busca vetorial
   });
 
-  log.info({ tabela: TABELA_RAG }, "PGVectorStore inicializado com sucesso");
+  log.info({ tabela: TABELA_RAG }, "SupabaseVectorStore inicializado com sucesso");
   return _vectorStore;
 }
 
