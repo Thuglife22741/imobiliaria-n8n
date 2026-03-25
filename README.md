@@ -1,48 +1,90 @@
-# Camila - Inteligência Imobiliária (LangGraph)
+# Camila — Inteligência Imobiliária (LangGraph + Supabase) 🏠🔑
 
-Agente autônomo para qualificação de leads e busca de imóveis (RAG) integrada ao WhatsApp.
-Este projeto é a migração e escalonamento de um workflow do n8n para uma arquitetura robusta baseada no `Bun` e Node.js.
+![Dashboard Camila](https://jscendxyylrjyrynkwmr.supabase.co/storage/v1/object/public/midia/Screenshot_5.png)
 
-## 🚀 Tech Stack
+Agente autônomo de alta performance para qualificação de leads e busca semântica de imóveis (RAG) integrada ao WhatsApp. Este projeto representa a evolução de um workflow n8n para uma arquitetura robusta baseada em **LangGraph** e **Bun**.
 
-- **Runtime:** Bun
-- **Core IA:** LangGraph & LangChain Open Source
-- **LLM:** OpenAI (GPT-4o-mini)
-- **Database & RAG:** Supabase (PostgreSQL + PGVector)
-- **Integração WhatsApp:** Evolution API
-- **APIs de Áudio:** Groq (Whisper-large-v3-turbo)
+---
 
-## 🐳 Desdobramento (Deploy) no Easypanel
+## 🚀 Tecnologias de Elite
 
-O projeto está pronto para rodar na nuvem do Easypanel. O comando executado pelo container Docker construído no Easypanel será automaticamente:
-```bash
-bun start
-```
+- **Runtime:** [Bun](https://bun.sh/) (Velocidade máxima de execução)
+- **Orquestração de IA:** [LangGraph](https://langchain-ai.github.io/langgraph/) & LangChain
+- **LLM Principal:** OpenAI (GPT-4o-mini)
+- **RAG & Embeddings:** 
+  - Modelo: `text-embedding-3-small`
+  - Banco: **Supabase** (PostgreSQL + PGVector)
+  - Coluna de busca: `content` (Alta compatibilidade)
+- **Mensageria:** Evolution API (WhatsApp)
+- **Processamento de Áudio:** Groq Whisper (Transcrição ultra-rápida)
+- **Infraestrutura:** Easypanel / Nixpacks
 
-## ⚙️ Variáveis de Ambiente Necessárias
+---
 
-Crie um novo arquivo `.env` no Easypanel definindo rigorosamente as seguintes chaves de integração:
+## 🧠 Arquitetura e Funcionamento
+
+A inteligência da **Camila** reside em um `StateGraph` sofisticado que gerencia o estado da conversação e as decisões do agente em tempo real.
+
+### Fluxo de Operação:
+1.  **Recepção**: Webhook da Evolution API encaminha a mensagem do cliente.
+2.  **Transcrição**: Áudios são convertidos em texto instantaneamente via Groq.
+3.  **Qualificação**: O agente verifica se o lead já está qualificado no Supabase (Nome/Email).
+4.  **Busca Semântica (RAG)**: Se o cliente busca imóveis, o sistema gera o embedding da pergunta e consulta a tabela `imobiliaria_rag`.
+5.  **Resposta Visual**: A Camila retorna um **Card de Imóvel** rico em detalhes (imagem, preço, descrição) via WhatsApp.
+6.  **CRM & Funil**: O agente atualiza automaticamente o status do lead no Kanban do dashboard.
+
+---
+
+## ⚙️ Variáveis de Ambiente (.env)
+
+Configure as seguintes chaves no seu ambiente de produção (Easypanel/Railway):
 
 ```env
 # Servidor
 PORT=3000
+NODE_ENV=production
+TZ=America/Sao_Paulo
 
 # Evolution API (WhatsApp)
-EVOLUTION_API_URL=https://...
-EVOLUTION_API_KEY=YOUR_EVOLUTION_KEY
+EVOLUTION_API_URL=https://sua-api.com
+EVOLUTION_API_KEY=SUA_KEY
 EVOLUTION_INSTANCE_NAME=imobiliaria
 
-# Supabase (Banco de Dados e Realtime Dashboard)
-SUPABASE_URL=https://...
-SUPABASE_SERVICE_ROLE_KEY=YOUR_SUPABASE_SERVICE_KEY
-SUPABASE_DB_URL=postgresql://...
+# Supabase (Banco de Dados e Realtime)
+SUPABASE_URL=https://seu-projeto.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=SUA_SERVICE_KEY
+SUPABASE_DB_URL=postgresql://postgres:senha@ip:5432/banco
 
-# OpenAI (Para Embeddings do PGVector e Chat do Agente)
+# OpenAI (Embeddings e Agente)
 OPENAI_API_KEY=sk-xxxx...
 
-# Groq (Para transcrição rápida de áudio de WhatsApp)
+# Groq (Transcrição de Áudio)
 GROQ_API_KEY=gsk_xxxx...
+
+# Google Gemini (Opcional - Fallback)
+GOOGLE_GEMINI_API_KEY=...
 ```
 
-## 🧠 Arquitetura de Conversação
-A inteligência do chat ocorre num "StateGraph" chamado Camila (`src/graphs/camila/graph.ts`). O Agente avalia o Lead no banco de dados, exige identificação (Nome, E-mail, Telefone), invoca vetorialmente os cards do Supabase para enviar ao cliente conforme a intenção "informar_imoveis", e por fim tem habilidades de agir ativamente no funil de vendas gravando "Contact Inicial" via Tools/Functions Nativas. 
+---
+
+## 🛠️ Comandos Úteis
+
+```bash
+# Instalar dependências
+bun install
+
+# Iniciar em modo desenvolvimento (Hot Reload)
+bun dev
+
+# Iniciar em produção
+bun start
+```
+
+---
+
+## 🐳 Deploy
+
+O projeto é configurado via `nixpacks.toml` para deploy contínuo. Basta realizar um `git push origin main` e o Easypanel cuidará do build e restart automático.
+
+---
+*Desenvolvido para Imobiliária Neemias — Transformando o atendimento imobiliário com IA.*
