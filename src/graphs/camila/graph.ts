@@ -179,7 +179,7 @@ function criarFerramentasCamila(telefone: string, nome: string) {
         const resultado = await buscarImoveisParaAgente(consulta);
         log.debug({ tamanhoResultado: resultado?.length ?? 0 }, "RAG retornou resultado");
 
-        if (!resultado || resultado.length === 0) {
+        if (!resultado || resultado.includes("AVISO CRÍTICO PARA O AGENTE: Nenhum imóvel encontrado")) {
           return "SISTEMA: NENHUM_IMOVEL_ENCONTRADO";
         }
         return resultado;
@@ -379,7 +379,7 @@ async function agenteCamila(state: CamilaState): Promise<Partial<CamilaState>> {
   // Verificação de busca vazia ou erro técnico (Short-circuit)
   const houveBuscaVazia = resultado.messages.some(
     (m) =>
-      m.getType() === "tool" &&
+      m._getType() === "tool" &&
       typeof m.content === "string" &&
       m.content.includes("NENHUM_IMOVEL_ENCONTRADO")
   );
@@ -387,7 +387,7 @@ async function agenteCamila(state: CamilaState): Promise<Partial<CamilaState>> {
   // Conta quantas vezes buscar_imoveis foi chamada nesta execução
   const totalBuscasNestaRodada = resultado.messages.filter(
     (m) =>
-      m.getType() === "ai" &&
+      m._getType() === "ai" &&
       (m as any).tool_calls?.some((tc: any) => tc.name === "buscar_imoveis")
   ).length;
 

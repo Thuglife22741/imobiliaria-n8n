@@ -70,11 +70,11 @@ export interface ResultadoRAG {
   conteudo: string;
   score: number;
   metadata: {
-    codigo?: string;
+    referencia?: string;
     tipo?: string;
     bairro?: string;
-    preco?: string;
-    imagem_url?: string;
+    valor?: string;
+    link_imagem?: string;
     [key: string]: unknown;
   };
 }
@@ -153,12 +153,13 @@ export function formatarResultadosParaAgente(resultados: ResultadoRAG[]): string
         `--- Imóvel ${i + 1} (score: ${r.score.toFixed(3)}) ---`,
         r.conteudo,
       ];
-      if (meta.codigo) linhas.push(`Código: ${meta.codigo}`);
-      if (meta.imagem_url) linhas.push(`Imagem URL: ${meta.imagem_url}`);
+      if (meta.referencia) linhas.push(`Código: ${meta.referencia}`);
+      if (meta.link_imagem) linhas.push(`Imagem URL: ${meta.link_imagem}`);
+      if (meta.valor) linhas.push(`Valor: ${meta.valor}`);
       return linhas.join("\n");
     })
     .join("\n\n");
-    
+
   return cabecalho + formatados;
 }
 
