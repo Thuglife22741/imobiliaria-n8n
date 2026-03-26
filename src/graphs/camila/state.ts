@@ -122,6 +122,12 @@ export const CamilaStateAnnotation = Annotation.Root({
     default: () => null,
     reducer: substituir<string | null>,
   }),
+
+  /** Contador de buscas de imóveis para evitar loops — Reiniciado a cada mensagem do usuário */
+  contagemBuscaImoveis: Annotation<number>({
+    default: () => 0,
+    reducer: substituir<number>,
+  }),
 });
 
 /** Tipo inferido do estado — use em todos os nós do grafo */

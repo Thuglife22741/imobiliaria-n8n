@@ -106,7 +106,7 @@ async function handleWebhookWhatsApp(req: Request, rota: string): Promise<Respon
 
       await camilaGraph.invoke(
         { dadosWebhook, messages: [] },
-        { configurable: { thread_id: dadosWebhook.id_sessao }, recursionLimit: 50 }
+        { configurable: { thread_id: dadosWebhook.id_sessao }, recursionLimit: 10 }
       );
 
       log.info({ sessao: dadosWebhook.id_sessao }, "Grafo concluído com sucesso");

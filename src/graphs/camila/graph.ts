@@ -174,10 +174,19 @@ function criarFerramentasCamila(telefone: string, nome: string) {
     async ({ consulta }) => {
       const log = createChildLogger({ tool: "buscar_imoveis", telefone });
       log.info({ consulta }, "Buscando imóveis via RAG (tabela: imobiliaria_rag)");
-      // Busca real no PGVector — tabela imobiliaria_rag no Easypanel
-      const resultado = await buscarImoveisParaAgente(consulta);
-      log.debug({ tamanhoResultado: resultado.length }, "RAG retornou resultado");
-      return resultado;
+      try {
+        // Busca real no PGVector — tabela imobiliaria_rag no Easypanel
+        const resultado = await buscarImoveisParaAgente(consulta);
+        log.debug({ tamanhoResultado: resultado?.length ?? 0 }, "RAG retornou resultado");
+
+        if (!resultado || resultado.length === 0) {
+          return "SISTEMA: NENHUM_IMOVEL_ENCONTRADO";
+        }
+        return resultado;
+      } catch (e) {
+        log.error({ erro: e }, "Erro técnico na busca de imóveis");
+        return "SISTEMA: NENHUM_IMOVEL_ENCONTRADO";
+      }
     },
     {
       name: "buscar_imoveis",
@@ -273,6 +282,7 @@ async function extrairDados(state: CamilaState): Promise<Partial<CamilaState>> {
   return {
     tipoMensagem: dados?.messageType ?? "unknown",
     mensagemProcessada: dados?.conversation ?? "",
+    contagemBuscaImoveis: 0, // Reinicia o contador para cada nova mensagem do usuário
   };
 }
 
@@ -340,29 +350,65 @@ async function agenteCamila(state: CamilaState): Promise<Partial<CamilaState>> {
     apiKey: process.env.OPENAI_API_KEY,
   });
 
-  const ferramentas = criarFerramentasCamila(
+  let ferramentas = criarFerramentasCamila(
     state.dadosWebhook?.remoteJid ?? "",
     state.dadosWebhook?.pushName ?? ""
   );
+
+  // Regra: buscar_imoveis apenas UMA VEZ por mensagem do usuário
+  if (state.contagemBuscaImoveis > 0) {
+    log.debug("Removendo ferramenta buscar_imoveis (limite de 1 por mensagem atingido)");
+    ferramentas = ferramentas.filter((t) => t.name !== "buscar_imoveis");
+  }
 
   const agente = createReactAgent({ llm, tools: ferramentas });
 
   const systemPrompt = gerarSystemPromptCamila(state.dadosWebhook);
 
-  const resultado = await agente.invoke({
-    messages: [
-      new SystemMessage(systemPrompt),
-      ...state.messages,
-      new HumanMessage(state.mensagemProcessada),
-    ],
-  });
+  const resultado = await agente.invoke(
+    {
+      messages: [
+        new SystemMessage(systemPrompt),
+        ...state.messages,
+        new HumanMessage(state.mensagemProcessada),
+      ],
+    },
+    { recursionLimit: 8 } // Limite interno para o sub-agente
+  );
+
+  // Verificação de busca vazia ou erro técnico (Short-circuit)
+  const houveBuscaVazia = resultado.messages.some(
+    (m) =>
+      m.getType() === "tool" &&
+      typeof m.content === "string" &&
+      m.content.includes("NENHUM_IMOVEL_ENCONTRADO")
+  );
+
+  // Conta quantas vezes buscar_imoveis foi chamada nesta execução
+  const totalBuscasNestaRodada = resultado.messages.filter(
+    (m) =>
+      m.getType() === "ai" &&
+      (m as any).tool_calls?.some((tc: any) => tc.name === "buscar_imoveis")
+  ).length;
 
   const ultimaMensagem = resultado.messages.at(-1);
   const rawOutput = ultimaMensagem
-    ? (typeof ultimaMensagem.content === "string"
-        ? ultimaMensagem.content
-        : JSON.stringify(ultimaMensagem.content))
-    : "{\"intenção\":\"pergunta_frequente\",\"mensagem\":\"Não consegui processar a resposta.\"}";
+    ? typeof ultimaMensagem.content === "string"
+      ? ultimaMensagem.content
+      : JSON.stringify(ultimaMensagem.content)
+    : '{"intenção":"pergunta_frequente","mensagem":"Não consegui processar a resposta."}';
+
+  if (houveBuscaVazia) {
+    log.warn("Busca retornou vazia. Aplicando resposta padrão e encerrando turno.");
+    const msgPadrao = "Não encontrei imóveis com esses critérios, mas posso te mostrar outras opções?";
+    return {
+      messages: resultado.messages,
+      intencao: "pergunta_frequente",
+      mensagemResposta: msgPadrao,
+      dadosAgendamento: null,
+      contagemBuscaImoveis: state.contagemBuscaImoveis + totalBuscasNestaRodada,
+    };
+  }
 
   log.debug({ tamanhoOutput: rawOutput.length }, "Resposta do agente recebida");
 
@@ -376,6 +422,7 @@ async function agenteCamila(state: CamilaState): Promise<Partial<CamilaState>> {
     intencao,
     mensagemResposta: mensagem,
     dadosAgendamento,
+    contagemBuscaImoveis: state.contagemBuscaImoveis + totalBuscasNestaRodada,
   };
 }
 
