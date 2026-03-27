@@ -205,19 +205,40 @@ export async function enviarCardsImoveis(
 
   log.info("Iniciando envio de cards de imóveis");
 
-  for (let i = 0; i < cards.length; i++) {
-    const card = cards[i];
-    log.debug({ index: i + 1, total: cards.length }, "Enviando card");
+  let cardsSucesso = 0;
 
-    try {
-      await enviarImagem(remoteJid, card.imagem_url, card.texto, { delay: 1500 }, instancia);
-    } catch (err) {
-      // continueOnFail — como no n8n ("continueOnFail": true no nó Evolution)
-      log.warn({ err, index: i + 1 }, "Falha ao enviar card — continuando com os demais");
+  for (let i = 0; i < cards.length; i++) {
+    const card = cards[i]!;
+    const temImagem = card.imagem_url && card.imagem_url.trim() !== "" && card.imagem_url.startsWith("http");
+
+    log.debug({ index: i + 1, total: cards.length, temImagem, imagemUrl: card.imagem_url }, "Enviando card");
+
+    let enviouImagem = false;
+
+    // Tenta enviar como imagem primeiro (se houver URL válida)
+    if (temImagem) {
+      try {
+        await enviarImagem(remoteJid, card.imagem_url, card.texto, { delay: 1500 }, instancia);
+        enviouImagem = true;
+        cardsSucesso++;
+      } catch (err) {
+        log.warn({ err, index: i + 1, imagemUrl: card.imagem_url }, "Falha ao enviar imagem do card — enviando como texto");
+      }
+    }
+
+    // Fallback: envia como texto formatado se a imagem falhou ou não tem URL
+    if (!enviouImagem) {
+      try {
+        const textoFormatado = `🏠 *Imóvel ${i + 1}*\n\n${card.texto}`;
+        await enviarMensagemTexto(remoteJid, textoFormatado, { delay: 1500, linkPreview: false }, instancia);
+        cardsSucesso++;
+      } catch (errTexto) {
+        log.error({ errTexto, index: i + 1 }, "Falha ao enviar card como texto — card perdido");
+      }
     }
   }
 
-  log.info("Envio de cards concluído");
+  log.info({ cardsSucesso, totalCards: cards.length }, "Envio de cards concluído");
 }
 
 // ---------------------------------------------------------------------------
