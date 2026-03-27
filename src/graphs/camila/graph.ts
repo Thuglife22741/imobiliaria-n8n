@@ -246,14 +246,17 @@ function criarFerramentasCamila(telefone: string, nome: string) {
       const log = createChildLogger({ tool: "salvar_qualificacao_inicial", telefone });
       log.info("Salvando qualificação inicial");
       await supabase.salvarQualificacaoInicial(telefone, nome_completo, email);
+      // Mover automaticamente para "Contato Inicial" no pipeline Kanban
+      await supabase.atualizarPipelineLead(telefone, "Contato Inicial");
       const primeiroNome = nome_completo.split(" ")[0];
-      return `INSTRUÇÃO CRÍTICA AO AGENTE: Responda EXATAMENTE com a seguinte cópia no campo 'mensagem': "Perfeito, ${primeiroNome}! Seus dados foram salvos com sucesso. Como posso te ajudar a encontrar o imóvel ideal hoje?"`;
+      return `Dados salvos com sucesso. INSTRUÇÃO CRÍTICA: Responda com intenção "pergunta_frequente" e mensagem: "Perfeito, ${primeiroNome}! Seus dados foram salvos com sucesso. 😊 Como posso te ajudar a encontrar o imóvel ideal hoje? Me conta o que você procura: tipo de imóvel, bairro, número de quartos..."`;
     },
     {
       name: "salvar_qualificacao_inicial",
       description:
         "Use quando o cliente informar seu nome completo e/ou email. " +
-        "Após salvar: confirme os dados e use 'atualizar_pipeline_lead' com status Contato Inicial.",
+        "Salva os dados E move o lead para Contato Inicial automaticamente. " +
+        "Após chamar: NÃO chame atualizar_pipeline_lead. Em vez disso, pergunte sobre imóveis.",
       schema: z.object({
         nome_completo: z.string().describe("Nome completo do cliente"),
         email: z.string().describe("Email do cliente"),
@@ -376,14 +379,6 @@ async function agenteCamila(state: CamilaState): Promise<Partial<CamilaState>> {
     { recursionLimit: 8 } // Limite interno para o sub-agente
   );
 
-  // Verificação de busca vazia ou erro técnico (Short-circuit)
-  const houveBuscaVazia = resultado.messages.some(
-    (m) =>
-      m._getType() === "tool" &&
-      typeof m.content === "string" &&
-      m.content.includes("NENHUM_IMOVEL_ENCONTRADO")
-  );
-
   // Conta quantas vezes buscar_imoveis foi chamada nesta execução
   const totalBuscasNestaRodada = resultado.messages.filter(
     (m) =>
@@ -397,18 +392,6 @@ async function agenteCamila(state: CamilaState): Promise<Partial<CamilaState>> {
       ? ultimaMensagem.content
       : JSON.stringify(ultimaMensagem.content)
     : '{"intenção":"pergunta_frequente","mensagem":"Não consegui processar a resposta."}';
-
-  if (houveBuscaVazia) {
-    log.warn("Busca retornou vazia. Aplicando resposta padrão e encerrando turno.");
-    const msgPadrao = "Não encontrei imóveis com esses critérios, mas posso te mostrar outras opções?";
-    return {
-      messages: resultado.messages,
-      intencao: "pergunta_frequente",
-      mensagemResposta: msgPadrao,
-      dadosAgendamento: null,
-      contagemBuscaImoveis: state.contagemBuscaImoveis + totalBuscasNestaRodada,
-    };
-  }
 
   log.debug({ tamanhoOutput: rawOutput.length }, "Resposta do agente recebida");
 
@@ -601,11 +584,27 @@ async function mensagemQualificacao(state: CamilaState): Promise<Partial<CamilaS
   if (!dadosWebhook) return {};
 
   const { remoteJid, pushName, instance } = dadosWebhook;
+  const userMsg = (state.mensagemProcessada ?? "").trim().toLowerCase();
+
+  // Responder humanamente à primeira mensagem do usuário
+  let saudacao = "";
+  if (userMsg.includes("boa noite")) {
+    saudacao = `Boa noite, ${pushName}! 😊`;
+  } else if (userMsg.includes("bom dia")) {
+    saudacao = `Bom dia, ${pushName}! ☀️`;
+  } else if (userMsg.includes("boa tarde")) {
+    saudacao = `Boa tarde, ${pushName}! 😊`;
+  } else {
+    saudacao = `Olá, ${pushName}! 😊`;
+  }
 
   const mensagem =
-    `Olá, ${pushName}! 😊 Bem-vindo à *Imobiliária Neemias*! 🏠\n\n` +
-    `Para iniciar seu atendimento personalizado, preciso de algumas informações rápidas:\n\n` +
-    `👤 *Seu nome completo*\n📧 *Seu melhor email*\n\nAssim consigo te oferecer o melhor atendimento! 🔑`;
+    `${saudacao} Seja muito bem-vindo(a) à *Imobiliária Neemias*! 🏠\n\n` +
+    `Meu nome é Camila e vou te ajudar a encontrar o imóvel perfeito para você! 🔑\n\n` +
+    `Para começar, me diga:\n` +
+    `👤 Seu *nome completo*\n` +
+    `📧 Seu *melhor e-mail*\n\n` +
+    `Com essas informações consigo te atender de forma personalizada! 😉`;
 
   await evolution.simularDigitacao(remoteJid, 1500, instance);
   await evolution.enviarMensagemTexto(remoteJid, mensagem, { delay: 1000 }, instance);
@@ -633,12 +632,30 @@ function rotearTipoMensagem(state: CamilaState): string {
 /** Gate de qualificação — equivale ao IF "Qualificado?" */
 function rotearQualificacao(state: CamilaState): string {
   if (!state.qualificado) {
-    const msg = state.mensagemProcessada || "";
-    // Se a mensagem for mais longa ou contiver @, o cliente provavelmente está enviando os dados pedidos
-    if (msg.trim().split(/\s+/).length >= 2 || msg.includes("@")) {
-      console.log("➡️ [Qualificação] Possível nome/email detectado no texto, direcionando ao Agente para extração:", msg);
+    const msg = (state.mensagemProcessada || "").trim();
+    const leadStatus = state.lead?.status;
+    
+    // Lead acabou de ser criado como "Novo Lead" — SEMPRE pedir qualificação primeiro
+    // Isso evita que a Camila pule direto para o agente na primeira mensagem
+    const isNovoLead = !leadStatus || (leadStatus as string).toLowerCase().includes("novo");
+    if (isNovoLead) {
+      // Exceto se a mensagem parecer conter nome + email (o usuário já está enviando os dados)
+      if (msg.includes("@") && msg.split(/\s+/).length >= 2) {
+        console.log("➡️ [Qualificação] Novo lead já enviando dados, direcionando ao Agente:", msg);
+        return "agente_camila";
+      }
+      console.log("➡️ [Qualificação] Novo lead — enviando mensagem de qualificação");
+      return "mensagem_qualificacao";
+    }
+
+    // Lead existe mas sem email — verificar se está enviando dados agora
+    if (msg.includes("@") || (msg.split(/\s+/).length >= 3 && !msg.match(/^(ola|oi|bom dia|boa tarde|boa noite|hey|eai|e ai)/i))) {
+      console.log("➡️ [Qualificação] Possível nome/email detectado, direcionando ao Agente:", msg);
       return "agente_camila";
     }
+    
+    // Lead sem email e mensagem curta/saudação — pedir qualificação novamente
+    console.log("➡️ [Qualificação] Lead sem email — reenviando pedido de qualificação");
     return "mensagem_qualificacao";
   }
   return "agente_camila";
