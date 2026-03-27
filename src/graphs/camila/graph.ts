@@ -242,10 +242,10 @@ function criarFerramentasCamila(telefone: string, nome: string) {
   );
 
   const salvarQualificacaoInicial = tool(
-    async ({ nome_completo, email }) => {
+    async ({ nome_completo, email, resumo_ia }) => {
       const log = createChildLogger({ tool: "salvar_qualificacao_inicial", telefone });
       log.info("Salvando qualificação inicial");
-      await supabase.salvarQualificacaoInicial(telefone, nome_completo, email);
+      await supabase.salvarQualificacaoInicial(telefone, nome_completo, email, resumo_ia);
       // Mover automaticamente para "Contato Inicial" no pipeline Kanban
       await supabase.atualizarPipelineLead(telefone, "Contato Inicial");
       const primeiroNome = nome_completo.split(" ")[0];
@@ -260,6 +260,7 @@ function criarFerramentasCamila(telefone: string, nome: string) {
       schema: z.object({
         nome_completo: z.string().describe("Nome completo do cliente"),
         email: z.string().describe("Email do cliente"),
+        resumo_ia: z.string().describe("Obrigatório. Crie um breve resumo do que o cliente já demonstrou de interesse ou seu perfil até esta etapa da conversa (ex: 'Lead Fernando. Buscando imóveis, não especificou detalhes ainda.')."),
       }),
     }
   );

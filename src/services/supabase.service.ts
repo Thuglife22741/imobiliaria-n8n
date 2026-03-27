@@ -215,14 +215,20 @@ export async function verificarQualificacao(telefone: string): Promise<boolean> 
 export async function salvarQualificacaoInicial(
   telefone: string,
   nomeCompleto: string,
-  email: string
+  email: string,
+  resumoIa?: string
 ): Promise<void> {
   const log = createChildLogger({ service: "supabase", operacao: "salvarQualificacaoInicial", telefone });
   log.info("Salvando qualificação inicial do lead");
 
+  const dadosUpdate: any = { name: nomeCompleto, email };
+  if (resumoIa && resumoIa.trim() !== "") {
+    dadosUpdate.description = resumoIa.trim();
+  }
+
   const { error } = await obterCliente()
     .from("leads")
-    .update({ name: nomeCompleto, email })
+    .update(dadosUpdate)
     .eq("phone", telefone);
 
   if (error) {
