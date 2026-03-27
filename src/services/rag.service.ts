@@ -135,32 +135,68 @@ export async function buscarImoveis(
 }
 
 /**
- * Formata os resultados do RAG em texto estruturado para o agente.
- * O agente usará este texto para montar o JSON de resposta "informar_imoveis".
+ * Extrai o link da página do imóvel no site da imobiliária a partir do content.
+ * O link está sempre após "Mais detalhes:\n" no campo content.
+ */
+function extrairLinkPagina(conteudo: string): string | null {
+  const match = conteudo.match(/https?:\/\/neemiasimoveis\.com\.br[^\s\n]*/i);
+  return match ? match[0] : null;
+}
+
+/**
+ * Extrai a descrição limpa do imóvel (sem cabeçalho de referência/valor e sem o link).
+ */
+function extrairDescricaoLimpa(conteudo: string): string {
+  // Remove linhas de cabeçalho (Imóvel —, Referência:, Valor:) e o link
+  const linhas = conteudo.split("\n").filter((l) => {
+    const trim = l.trim();
+    if (!trim || trim === "-") return false;
+    if (trim.startsWith("Imóvel —") || trim.startsWith("Imóvel —")) return false;
+    if (trim.startsWith("Referência:")) return false;
+    if (trim.startsWith("Valor:")) return false;
+    if (trim.startsWith("Mais detalhes:")) return false;
+    if (trim.startsWith("http")) return false;
+    return true;
+  });
+  return linhas.join(" ").trim();
+}
+
+/**
+ * Formata os resultados do RAG em cards PRÉ-CONSTRUÍDOS para o agente.
+ * Os cards já incluem: código de referência, valor, descrição e link da página.
+ * O agente NÃO precisa formatar — apenas retorna os cards como estão.
  */
 export function formatarResultadosParaAgente(resultados: ResultadoRAG[]): string {
   if (resultados.length === 0) {
     return "AVISO CRÍTICO PARA O AGENTE: Nenhum imóvel encontrado com esses critérios na base (tabela imobiliaria_rag). NÃO TENTE buscar novamente. Pare agora, crie uma resposta 'pergunta_frequente' pedindo desculpas e sugerindo que o cliente relaxe os critérios de busca (ex: mudar o bairro ou número de quartos).";
   }
 
-  const cabecalho = "INSTRUÇÃO CRÍTICA AO AGENTE: Você ENCONTROU imóveis! Formate EXATAMENTE sob a intenção 'informar_imoveis'. \n" +
-    "A chave 'mensagem' DEVE SER UM ARRAY DE OBJETOS JSON contendo 'imagem_url' (da metadata abaixo) e 'texto' (crie uma copy vendedora!).\n\n";
+  // Pré-construir os cards com TODOS os dados necessários
+  const cardsProntos = resultados.map((r) => {
+    const meta = r.metadata;
+    const ref = meta.referencia ?? "S/N";
+    const valor = meta.valor ?? "Consulte";
+    const linkPagina = extrairLinkPagina(r.conteudo);
+    const descricao = extrairDescricaoLimpa(r.conteudo);
+    const imagemUrl = meta.link_imagem ?? "";
 
-  const formatados = resultados
-    .map((r, i) => {
-      const meta = r.metadata;
-      const linhas = [
-        `--- Imóvel ${i + 1} (score: ${r.score.toFixed(3)}) ---`,
-        r.conteudo,
-      ];
-      if (meta.referencia) linhas.push(`Código: ${meta.referencia}`);
-      if (meta.link_imagem) linhas.push(`Imagem URL: ${meta.link_imagem}`);
-      if (meta.valor) linhas.push(`Valor: ${meta.valor}`);
-      return linhas.join("\n");
-    })
-    .join("\n\n");
+    let texto = `📋 *Ref: ${ref}*\n💰 Valor: ${valor}\n\n${descricao}`;
+    if (linkPagina) {
+      texto += `\n\n🔗 Veja mais detalhes: ${linkPagina}`;
+    }
+    texto += `\n\n_Para agendar uma visita, me envie o código *${ref}*_`;
 
-  return cabecalho + formatados;
+    return { imagem_url: imagemUrl, texto };
+  });
+
+  const cardsJSON = JSON.stringify(cardsProntos);
+
+  return (
+    `INSTRUÇÃO CRÍTICA AO AGENTE: Você ENCONTROU ${resultados.length} imóveis!\n` +
+    `Responda com intenção "informar_imoveis" e use EXATAMENTE estes cards pré-formatados no campo "mensagem".\n` +
+    `NÃO modifique, NÃO reescreva, NÃO resuma os cards. Copie o array abaixo LITERALMENTE:\n\n` +
+    `CARDS_PRONTOS=${cardsJSON}`
+  );
 }
 
 // ---------------------------------------------------------------------------

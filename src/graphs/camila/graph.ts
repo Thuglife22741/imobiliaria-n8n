@@ -504,6 +504,7 @@ async function processarImoveis(state: CamilaState): Promise<Partial<CamilaState
   let cards: CardImovel[] = [];
   const msg = state.mensagemResposta;
 
+  // Tentativa 1: cards vieram como array direto do parsearRespostaAgente
   if (Array.isArray(msg)) {
     cards = msg as CardImovel[];
   } else if (typeof msg === "string") {
@@ -515,6 +516,31 @@ async function processarImoveis(state: CamilaState): Promise<Partial<CamilaState
     }
   }
 
+  // Tentativa 2 (fallback): extrair CARDS_PRONTOS da resposta da tool buscar_imoveis
+  // Isso garante que mesmo se o LLM não repassar os cards, eles são extraídos diretamente
+  if (cards.length === 0 || !cards[0]?.texto?.includes("Ref:")) {
+    log.debug("Tentando extrair cards pré-construídos das mensagens da tool...");
+    
+    for (const m of state.messages) {
+      if (m._getType() !== "tool") continue;
+      const conteudo = typeof m.content === "string" ? m.content : "";
+      const match = conteudo.match(/CARDS_PRONTOS=(\[[\s\S]*\])/);
+      if (match) {
+        try {
+          const cardsDaTool = JSON.parse(match[1]!) as CardImovel[];
+          if (cardsDaTool.length > 0) {
+            log.info({ quantidade: cardsDaTool.length }, "Cards pré-construídos extraídos da tool com sucesso");
+            cards = cardsDaTool;
+            break;
+          }
+        } catch (e) {
+          log.warn({ erro: e }, "Falha ao parsear CARDS_PRONTOS da tool");
+        }
+      }
+    }
+  }
+
+  // Último fallback: transformar a mensagem em um card simples
   if (cards.length === 0) cards = [{ imagem_url: "", texto: String(msg) }];
 
   log.info({ quantidadeCards: cards.length }, "Cards de imóveis preparados");
