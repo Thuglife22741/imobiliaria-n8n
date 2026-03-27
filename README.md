@@ -174,4 +174,4 @@ src/
 
 ---
 
-*Desenvolvido para Imobiliária Neemias — Transformando o atendimento imobiliário com IA.* 🏠
+*Desenvolvido para Imobiliárias — Transformando o atendimento imobiliário com IA.* 🏠
