@@ -155,19 +155,23 @@ export async function enviarImagem(
   opcoes: OpcoesEnvioImagem = {},
   instancia: string = obterInstanciaDefault()
 ): Promise<RespostaEvolution> {
+  // Trata a URL: decodifica (para pegar %20 como espaço), troca espaços por _ (underline), dps codificaURI seguro.
+  // Isso atende as renomeações de bucket e previne caracteres que o WhatsApp rejeita
+  const urlSegura = encodeURI(decodeURI(imagemUrl.trim()).replace(/\s+/g, "_"));
+
   const log = createChildLogger({
     service: "evolution",
     operacao: "enviarImagem",
     instancia,
     remoteJid,
-    imagemUrl,
+    imagemUrl: urlSegura,
   });
 
   log.info("Enviando imagem (card de imóvel)");
 
   const corpo = {
     number: remoteJid,
-    media: imagemUrl,
+    media: urlSegura,
     caption: legenda,
     delay: opcoes.delay ?? 1500,
   };
