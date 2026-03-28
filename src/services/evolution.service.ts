@@ -137,10 +137,35 @@ export async function enviarMensagemTexto(
 // ---------------------------------------------------------------------------
 
 /**
+ * Auxiliar para baixar uma mídia (imagem/áudio) de uma URL e converter para Base64.
+ * Resolve problemas de permissão/CORS da Evolution API ao acessar URLs externas diretamente.
+ */
+async function baixarMidiaParaBase64(url: string): Promise<{ base64: string; mimetype: string }> {
+  const log = createChildLogger({ service: "evolution", operacao: "baixarMidiaParaBase64", url });
+  
+  try {
+    const resposta = await fetch(url);
+    if (!resposta.ok) {
+      throw new Error(`Erro HTTP ao baixar mídia: ${resposta.status} ${resposta.statusText}`);
+    }
+
+    const contentType = resposta.headers.get("content-type") || "image/jpeg";
+    const arrayBuffer = await resposta.arrayBuffer();
+    const base64 = Buffer.from(arrayBuffer).toString("base64");
+
+    log.debug({ contentType, tamanhoBase64: base64.length }, "Mídia baixada e convertida para Base64");
+    return { base64, mimetype: contentType };
+  } catch (err) {
+    log.error({ err }, "Falha ao baixar mídia da URL");
+    throw err;
+  }
+}
+
+/**
  * Envia uma imagem com legenda — usada para enviar cards de imóveis.
  *
- * Equivalente ao nó "Enviar Card do Imóvel1":
- *   operation: "send-image", media: imagem_url, caption: texto, delay: 1500
+ * NOTA TÉCNICA: Agora baixa a imagem no backend e envia como Base64 para a Evolution API.
+ * Isso elimina erros de URL, permissão do Supabase ou caracteres especiais que o WhatsApp rejeita.
  *
  * @param remoteJid  - Número do destinatário
  * @param imagemUrl  - URL pública da imagem
@@ -155,35 +180,39 @@ export async function enviarImagem(
   opcoes: OpcoesEnvioImagem = {},
   instancia: string = obterInstanciaDefault()
 ): Promise<RespostaEvolution> {
-  // Trata a URL: decodifica (para pegar %20 como espaço), troca espaços por _ (underline), dps codificaURI seguro.
-  // Isso atende as renomeações de bucket e previne caracteres que o WhatsApp rejeita
-  const urlSegura = encodeURI(decodeURI(imagemUrl.trim()).replace(/\s+/g, "_"));
-
   const log = createChildLogger({
     service: "evolution",
     operacao: "enviarImagem",
     instancia,
     remoteJid,
-    imagemUrl: urlSegura,
+    imagemUrl,
   });
 
-  log.info("Enviando imagem (card de imóvel)");
+  log.info("Baixando imagem para envio via Base64 (sendMedia)");
 
-  const corpo = {
-    number: remoteJid,
-    media: urlSegura,
-    caption: legenda,
-    delay: opcoes.delay ?? 1500,
-  };
+  try {
+    const { base64 } = await baixarMidiaParaBase64(imagemUrl);
 
-  const resultado = await requisicaoEvolution<RespostaEvolution>(
-    "POST",
-    `/message/sendImage/${instancia}`,
-    corpo
-  );
+    const corpo = {
+      number: remoteJid,
+      mediatype: "image",
+      media: base64,
+      caption: legenda,
+      delay: opcoes.delay ?? 1500,
+    };
 
-  log.info({ messageId: resultado?.key?.id }, "Imagem enviada com sucesso");
-  return resultado;
+    const resultado = await requisicaoEvolution<RespostaEvolution>(
+      "POST",
+      `/message/sendMedia/${instancia}`,
+      corpo
+    );
+
+    log.info({ messageId: resultado?.key?.id }, "Imagem enviada com sucesso (via sendMedia/Base64)");
+    return resultado;
+  } catch (err) {
+    log.error({ err }, "Falha CRÍTICA ao enviar imagem — o erro será propagado para o fallback de texto");
+    throw err;
+  }
 }
 
 /**
@@ -372,7 +401,8 @@ export async function simularDigitacao(
  *   $json.body.data.key.remoteJid.split('@')[0].trim()
  */
 export function normalizarRemoteJid(remoteJid: string): string {
-  return remoteJid.split("@")[0].trim();
+  if (!remoteJid) return "";
+  return (remoteJid.split("@")[0] || "").trim();
 }
 
 /**
