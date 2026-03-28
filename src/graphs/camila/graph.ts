@@ -11,6 +11,7 @@ import {
   type IntencaoCamila,
   type CardImovel,
   type DadosAgendamento,
+  type DadosInteresse,
 } from "./state";
 import * as supabase from "../../services/supabase.service";
 import * as evolution from "../../services/evolution.service";
@@ -106,8 +107,10 @@ DADOS DO CLIENTE:
 
   Para texto/saudação: {"intenção":"pergunta_frequente","mensagem":"texto aqui"}
   Para imóveis: {"intenção":"informar_imoveis","mensagem":[{"imagem_url":"url","texto":"desc"}]}
-  Para agendamento: {"intenção":"agendamento_confirmado","mensagem":"confirmação","data_agendamento":"dd/MM/yyyy","hora_agendamento":"HH:mm","codigo_imovel":"CA252","corretor":"Carlos Mendes"}
+  Para agendamento: {"intenção":"agendamento_confirmado","mensagem":"confirmação","data_agendamento":"dd/MM/yyyy","hora_agendamento":"HH:mm","codigo_imovel":"CA252","corretor":"Carlos Mendes","valor_interesse":340000}
   Para reagendamento: {"intenção":"reagendamento_solicitado","mensagem":"texto","data_antiga":"dd/MM/yyyy","hora_antiga":"HH:mm","codigo_imovel":"CA252","data_agendamento":"dd/MM/yyyy","hora_agendamento":"HH:mm","corretor":"Carlos Mendes"}
+
+  CRITICAL: Sempre que identificar interesse em um imóvel específico (pela referência), adicione: "referencia_interesse": "CÓDIGO" e "valor_interesse": 123456 (número puro).
 </response_format>
 
 <restrictions>
@@ -125,6 +128,7 @@ function parsearRespostaAgente(raw: string): {
   intencao: IntencaoCamila;
   mensagem: string | CardImovel[];
   dadosAgendamento: DadosAgendamento | null;
+  dadosInteresse: DadosInteresse | null;
 } {
   let texto = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/, "").trim();
   const match = texto.match(/\{[\s\S]*\}/);
@@ -162,7 +166,15 @@ function parsearRespostaAgente(raw: string): {
         }
       : null;
 
-  return { intencao, mensagem: parsed.mensagem as string | CardImovel[], dadosAgendamento };
+  const dadosInteresse: DadosInteresse | null = 
+    parsed.referencia_interesse || parsed.valor_interesse
+      ? {
+          referencia: (parsed.referencia_interesse as string) ?? (parsed.codigo_imovel as string) ?? null,
+          valor: typeof parsed.valor_interesse === 'number' ? parsed.valor_interesse : (parsed.valor_interesse ? parseFloat(String(parsed.valor_interesse).replace(/[^\d.]/g, '')) : null)
+        }
+      : null;
+
+  return { intencao, mensagem: (parsed.mensagem as any) ?? raw, dadosAgendamento, dadosInteresse };
 }
 
 // ---------------------------------------------------------------------------
@@ -397,7 +409,7 @@ async function agenteCamila(state: CamilaState): Promise<Partial<CamilaState>> {
   log.debug({ tamanhoOutput: rawOutput.length }, "Resposta do agente recebida");
 
   // Parseia o JSON de resposta (equivale ao nó "Code1")
-  const { intencao, mensagem, dadosAgendamento } = parsearRespostaAgente(rawOutput);
+  const { intencao, mensagem, dadosAgendamento, dadosInteresse } = parsearRespostaAgente(rawOutput);
 
   log.info({ intencao }, "Intenção extraída da resposta do agente");
 
@@ -406,6 +418,7 @@ async function agenteCamila(state: CamilaState): Promise<Partial<CamilaState>> {
     intencao,
     mensagemResposta: mensagem,
     dadosAgendamento,
+    dadosInteresse,
     contagemBuscaImoveis: state.contagemBuscaImoveis + totalBuscasNestaRodada,
   };
 }
@@ -583,6 +596,20 @@ async function enviarResposta(state: CamilaState): Promise<Partial<CamilaState>>
 
   // Indicador de digitação antes de responder
   await evolution.simularDigitacao(remoteJid, 2000, instance);
+
+  // Sincroniza interesse do lead no Supabase (se detectado)
+  if (state.dadosInteresse?.referencia) {
+    log.info({ interesse: state.dadosInteresse }, "Sincronizando interesse do lead no Supabase");
+    try {
+      await supabase.atualizarInteresseLead(
+        remoteJid,
+        state.dadosInteresse.referencia,
+        state.dadosInteresse.valor ?? 0
+      );
+    } catch (e) {
+      log.warn({ erro: e }, "Falha ao sincronizar interesse (não crítico)");
+    }
+  }
 
   if (intencao === "informar_imoveis" && cardsImoveis.length > 0) {
     // Envia cards de imóveis + CTA (Call-to-Action)

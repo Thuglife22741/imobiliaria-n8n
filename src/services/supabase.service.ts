@@ -12,6 +12,7 @@ export interface Lead {
   email?: string;
   status: StatusLead;
   description?: string;
+  value?: number;
   link_imovel_interesse?: string;
   created_at?: string;
 }
@@ -262,6 +263,34 @@ export async function salvarResumoVisita(
   }
 
   log.info("Resumo da visita salvo com sucesso");
+}
+
+/**
+ * Atualiza o valor e o imóvel de interesse do lead.
+ * Chamado sempre que o agente detecta interesse em um imóvel específico.
+ */
+export async function atualizarInteresseLead(
+  telefone: string,
+  referencia: string,
+  valor: number
+): Promise<void> {
+  const log = createChildLogger({ service: "supabase", operacao: "atualizarInteresseLead", telefone, referencia, valor });
+  log.info("Atualizando interesse e valor do lead");
+
+  const { error } = await obterCliente()
+    .from("leads")
+    .update({ 
+      value: valor,
+      link_imovel_interesse: referencia 
+    })
+    .eq("phone", telefone);
+
+  if (error) {
+    log.error({ error }, "Erro ao atualizar interesse do lead");
+    throw error;
+  }
+
+  log.info("Interesse do lead atualizado com sucesso");
 }
 
 // ---------------------------------------------------------------------------

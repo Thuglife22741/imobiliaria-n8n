@@ -46,6 +46,12 @@ export interface DadosAgendamento {
   hora_antiga: string | null;
 }
 
+/** Dados de interesse em imóvel detectados pelo agente. */
+export interface DadosInteresse {
+  referencia: string | null;
+  valor: number | null;
+}
+
 // ---------------------------------------------------------------------------
 // Reducer tipado — elimina "implicit any" do Annotation
 // ---------------------------------------------------------------------------
@@ -116,6 +122,11 @@ export const CamilaStateAnnotation = Annotation.Root({
   mensagensDivididas: Annotation<string[]>({
     default: () => [],
     reducer: substituir<string[]>,
+  }),
+
+  dadosInteresse: Annotation<DadosInteresse | null>({
+    default: () => null,
+    reducer: substituir<DadosInteresse | null>,
   }),
 
   erro: Annotation<string | null>({
