@@ -1,0 +1,108 @@
+--- Verificando Tabela imobiliaria_rag ---
+Encontrados 5 registros.
+
+[Registro 0] ID: e50274ad-57c2-479b-b05a-b47a23c109e9
+Content: Imóvel — Consulte o Bairro
+Referência: N/A
+Valor: R$ Sob consulta
+
+Mais detalhes:
+https://neemiasimoveis.com.br...
+Metadata: {
+  "loc": {
+    "lines": {
+      "to": 13,
+      "from": 8
+    }
+  },
+  "valor": "",
+  "source": "blob",
+  "blobType": "text/plain",
+  "referencia": "",
+  "link_imagem": "https://encrypted-tbn2.gstatic.com/images?q=tbn:ANd9GcRo_hNHRg8-ZB6rUU80KmIm2UQYn2ZgmrkxbuHJp9geIv_zkw"
+}
+
+[Registro 1] ID: 07c6ef83-6887-48c0-899c-0feaf7c9a35e
+Content: Imóvel — Consulte o Bairro
+Referência: N/A
+Valor: R$ Sob consulta
+
+Mais detalhes:
+https://neemiasimoveis.com.br...
+Metadata: {
+  "loc": {
+    "lines": {
+      "to": 13,
+      "from": 8
+    }
+  },
+  "valor": "",
+  "source": "blob",
+  "blobType": "text/plain",
+  "referencia": "",
+  "link_imagem": ""
+}
+
+[Registro 2] ID: 0d312970-f929-4f8c-a642-6235ff25beca
+Content: Imóvel — -
+Referência: N/A
+Valor: R$ Sob consulta
+
+Mais detalhes:
+https://neemiasimoveis.com.br...
+Metadata: {
+  "loc": {
+    "lines": {
+      "to": 13,
+      "from": 8
+    }
+  },
+  "valor": "",
+  "source": "blob",
+  "blobType": "text/plain",
+  "referencia": "",
+  "link_imagem": ""
+}
+
+[Registro 3] ID: ae8ad210-8200-46ae-8d34-c95e5c1dc4d6
+Content: Imóvel — Piauí
+Referência: CA252
+Valor: R$ R$ 450.000,00
+
+🏡 Excelente Oportunidade! Casa Ampla e Bem Localizada Apresentamos uma casa incrível, com excelente localização e um projeto espaçoso, ideal ...
+Metadata: {
+  "loc": {
+    "lines": {
+      "to": 8,
+      "from": 1
+    }
+  },
+  "valor": "R$ 450.000,00",
+  "source": "blob",
+  "blobType": "text/plain",
+  "referencia": "CA252",
+  "link_imagem": "https://jscendxyylrjyrynkwmr.supabase.co/storage/v1/object/public/midia/REF_CA252.jpeg"
+}
+
+[Registro 4] ID: 2ca90b79-0858-4c21-bb93-0aa0ddf09f18
+Content: Imóvel — Boa Esperança
+Referência: CA325
+Valor: R$ R$ 180.000,00
+
+Terraço, garagem, jardim, 04 suítes, sala de jantar, área de serviço e quintal.
+
+Mais detalhes:
+https://neemiasimoveis.com.br/imoveis-...
+Metadata: {
+  "loc": {
+    "lines": {
+      "to": 8,
+      "from": 1
+    }
+  },
+  "valor": "R$ 180.000,00",
+  "source": "blob",
+  "blobType": "text/plain",
+  "referencia": "CA325",
+  "link_imagem": "https://jscendxyylrjyrynkwmr.supabase.co/storage/v1/object/public/midia/REF_CA325.jpeg"
+}

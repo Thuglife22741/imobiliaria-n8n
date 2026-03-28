@@ -543,7 +543,9 @@ async function processarImoveis(state: CamilaState): Promise<Partial<CamilaState
     for (const m of state.messages) {
       if (m._getType() !== "tool") continue;
       const conteudo = typeof m.content === "string" ? m.content : "";
-      const match = conteudo.match(/CARDS_PRONTOS=(\[[\s\S]*\])/);
+      
+      // Regex mais robusto para capturar o JSON após o marcador
+      const match = conteudo.match(/CARDS_PRONTOS\s*=\s*(\[[\s\S]*\])/);
       if (match) {
         try {
           const cardsDaTool = JSON.parse(match[1]!) as CardImovel[];
@@ -560,7 +562,11 @@ async function processarImoveis(state: CamilaState): Promise<Partial<CamilaState
   }
 
   // Último fallback: transformar a mensagem em um card simples
-  if (cards.length === 0) cards = [{ imagem_url: "", texto: String(msg) }];
+  // Se ainda estiver vazio, tentamos garantir que ao menos o texto original (que pode conter o link) seja enviado
+  if (cards.length === 0) {
+    log.warn("Nenhum card formatado encontrado. Usando mensagem de fallback.");
+    cards = [{ imagem_url: "", texto: String(msg) }];
+  }
 
   log.info({ quantidadeCards: cards.length }, "Cards de imóveis preparados");
   return { cardsImoveis: cards };
