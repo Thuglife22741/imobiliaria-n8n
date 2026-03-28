@@ -118,17 +118,14 @@ export async function buscarImoveis(
     metadata: documento.metadata as ResultadoRAG["metadata"],
   }));
 
-  log.info(
-    {
-      encontrados: imoveis.length,
-      melhorScore: imoveis[0]?.score ?? 0,
-    },
-    "Busca semântica concluída"
-  );
-  
-  // LOG DE DEBUG SOLICITADO PARA RESOLUÇÃO DE PROBLEMAS RAG/CARDS
-  console.log("\n[RAG RESULT] Consulta:", consulta);
-  console.dir(imoveis, { depth: null, colors: true });
+  // LOG DE DIAGNÓSTICO PARA ESTABILIZAÇÃO RAG
+  console.log(`\n[RAG SEARCH] Consulta: "${consulta}"`);
+  console.log(`[RAG SEARCH] Resultados encontrados: ${imoveis.length}`);
+  if (imoveis.length > 0) {
+    console.log(`[RAG SEARCH] Melhor score: ${imoveis[0]?.score?.toFixed(4)}`);
+    // Mostra apenas as referências para não poluir o console
+    console.log(`[RAG SEARCH] Referências: ${imoveis.map(i => i.metadata.referencia).join(", ")}`);
+  }
   console.log("--------------------------------------------------\n");
 
   return imoveis;
@@ -168,7 +165,7 @@ function extrairDescricaoLimpa(conteudo: string): string {
  */
 export function formatarResultadosParaAgente(resultados: ResultadoRAG[]): string {
   if (resultados.length === 0) {
-    return "AVISO CRÍTICO PARA O AGENTE: Nenhum imóvel encontrado com esses critérios na base (tabela imobiliaria_rag). NÃO TENTE buscar novamente. Pare agora, crie uma resposta 'pergunta_frequente' pedindo desculpas e sugerindo que o cliente relaxe os critérios de busca (ex: mudar o bairro ou número de quartos).";
+    return "SISTEMA: Nenhum imóvel encontrado com esses critérios na base (tabela imobiliaria_rag). Oriente o cliente a relaxar os filtros (ex: mudar bairro ou valor) ou diga que vai verificar novas opções em breve.";
   }
 
   // Pré-construir os cards com TODOS os dados necessários

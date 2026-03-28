@@ -102,20 +102,22 @@ DADOS DO CLIENTE:
   </REGRA_ABSOLUTA>
 </qualificacao_lead>
 
-<response_format>
-  Responda SEMPRE em JSON válido puro. NUNCA use blocos markdown.
+  <response_format>
+    Você deve preferencialmente responder em JSON. Se houver texto fora do JSON, o sistema tentará extraí-lo.
+    Estruturas sugeridas:
+    - Informar imóveis: {"intenção":"informar_imoveis","mensagem":[...]}
+    - Pergunta frequente: {"intenção":"pergunta_frequente","mensagem":"texto"}
+    - Agendamento: {"intenção":"agendamento_confirmado", ...}
 
-  Para texto/saudação: {"intenção":"pergunta_frequente","mensagem":"texto aqui"}
-  Para imóveis: {"intenção":"informar_imoveis","mensagem":[{"imagem_url":"url","texto":"desc"}]}
-  Para agendamento: {"intenção":"agendamento_confirmado","mensagem":"confirmação","data_agendamento":"dd/MM/yyyy","hora_agendamento":"HH:mm","codigo_imovel":"CA252","corretor":"Carlos Mendes"}
-  Para reagendamento: {"intenção":"reagendamento_solicitado","mensagem":"texto","data_antiga":"dd/MM/yyyy","hora_antiga":"HH:mm","codigo_imovel":"CA252","data_agendamento":"dd/MM/yyyy","hora_agendamento":"HH:mm","corretor":"Carlos Mendes"}
-
-  CRITICAL_DATA_EXTRACTION: 
-  Sempre que um código de referência (ex: CA252, AP123) aparecer ou o cliente demonstrar interesse em um imóvel específico, você DEVE OBRIGATORIAMENTE incluir os campos:
-  "referencia_interesse": "CÓDIGO"
-  "valor_interesse": 123456 (número inteiro sem formatação)
-  Extraia isso de qualquer parte da conversa ou histórico.
-</response_format>
+    DATA_EXTRACTION (Obrigatório se houver imóvel em foco): 
+    Sempre que um código de referência (CA252, etc.) for o centro do interesse, inclua AGORA ou no JSON final:
+    "referencia_interesse": "CÓDIGO"
+    "valor_interesse": 123456
+  </response_format>
+  
+  FOCO NA BUSCA: Se o cliente quer ver casas, use buscar_imoveis SEMPRE antes de responder.
+  NÃO diga que não encontrou se ainda não usou a ferramenta.
+  Se a ferramenta retornar "SISTEMA: NENHUM_IMOVEL_ENCONTRADO", admita que não encontrou nada similar e peça mais detalhes.
 
 <restrictions>
   - NUNCA agende horários no passado.
@@ -138,11 +140,23 @@ function parsearRespostaAgente(raw: string): {
   const match = texto.match(/\{[\s\S]*\}/);
   if (match) texto = match[0];
 
-  let parsed: Record<string, unknown>;
+  let parsed: Record<string, unknown> = {};
+  
+  // Tenta parsear diretamente
   try {
     parsed = JSON.parse(texto);
   } catch {
-    parsed = { "intenção": "pergunta_frequente", mensagem: raw };
+    // Falhou? Tenta extrair o primeiro bloco JSON { ... } via regex
+    const match = texto.match(/\{[\s\S]*\}/);
+    if (match) {
+      try {
+        parsed = JSON.parse(match[0]);
+      } catch {
+        parsed = { "intenção": "pergunta_frequente", mensagem: raw };
+      }
+    } else {
+      parsed = { "intenção": "pergunta_frequente", mensagem: raw };
+    }
   }
 
   const intencao = (parsed["intenção"] ?? parsed["intencao"] ?? "pergunta_frequente") as IntencaoCamila;
@@ -419,8 +433,14 @@ async function agenteCamila(state: CamilaState): Promise<Partial<CamilaState>> {
 
   log.info({ intencao }, "Intenção extraída da resposta do agente");
 
+  // Filtra apenas as NOVAS mensagens geradas pelo agente para não duplicar o histórico
+  // O agente recebeu: [System, ...state.messages, Human]
+  // Queremos persistir: [Human, ToolCall, ToolResult, AIResponse]
+  // Nota: o HumanMessage será adicionado ao histórico pelo reducer do LangGraph
+  const novasMensagens = resultado.messages.slice(state.messages.length + 1); 
+
   return {
-    messages: resultado.messages,
+    messages: novasMensagens,
     intencao,
     mensagemResposta: mensagem,
     dadosAgendamento,
