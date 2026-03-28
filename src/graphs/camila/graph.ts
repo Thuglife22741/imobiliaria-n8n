@@ -475,14 +475,17 @@ async function processarAgendamento(state: CamilaState): Promise<Partial<CamilaS
   const horaFormatada = dadosAgendamento.hora_agendamento!.slice(0, 5);
   const mensagem = `Perfeito, ${dadosWebhook.pushName}! ✅ Sua visita foi agendada com nosso corretor Carlos Mendes para o dia ${dataFormatada} às ${horaFormatada}.\n\nQualquer dúvida, estamos à disposição! 🏠🔑`;
 
+  const refImovel = dadosAgendamento.codigo_imovel || state.dadosInteresse?.referencia || "Não informado";
+  const valorImovel = state.dadosInteresse?.valor || 0;
+
   const resumoDashboard = `🏡 Visita Confirmada!
-📍 Imóvel ref: ${dadosAgendamento.codigo_imovel}
+📍 Imóvel ref: ${refImovel}
 🗓️ Data: ${dataFormatada} às ${horaFormatada}
 🤝 Cliente: ${dadosWebhook.pushName}
 🧑‍💼 Corretor: Carlos Mendes`;
 
-  log.info({ agendamentoId: agendamento.id }, "Agendamento criado com sucesso, salvando resumo no lead...");
-  await supabase.salvarResumoVisita(dadosWebhook.remoteJid, resumoDashboard, dadosAgendamento.codigo_imovel!);
+  log.info({ agendamentoId: agendamento.id, refImovel, valorImovel }, "Agendamento criado com sucesso, salvando resumo no lead...");
+  await supabase.salvarResumoVisita(dadosWebhook.remoteJid, resumoDashboard, refImovel, valorImovel);
 
   return {
     agendamentoCriado: agendamento,
@@ -519,14 +522,17 @@ async function processarReagendamento(state: CamilaState): Promise<Partial<Camil
   const horaFormatada = dadosAgendamento.hora_agendamento!.slice(0, 5);
   const mensagem = `Perfeitamente, ${dadosWebhook.pushName}! 🔄 Sua visita foi reagendada com nosso corretor Carlos Mendes para o dia ${dataFormatada} às ${horaFormatada}.\n\nPara qualquer dúvida, estou por aqui! 🏠🔑`;
 
+  const refImovel = dadosAgendamento.codigo_imovel || state.dadosInteresse?.referencia || "Não informado";
+  const valorImovel = state.dadosInteresse?.valor || 0;
+
   const resumoDashboard = `🔄 Visita Reagendada!
-📍 Imóvel ref: ${dadosAgendamento.codigo_imovel}
+📍 Imóvel ref: ${refImovel}
 🗓️ Nova Data: ${dataFormatada} às ${horaFormatada}
 🤝 Cliente: ${dadosWebhook.pushName}
 🧑‍💼 Corretor: Carlos Mendes`;
 
-  log.info({ agendamentoId: novoAgendamento.id }, "Reagendamento processado com sucesso, salvando resumo no lead...");
-  await supabase.salvarResumoVisita(dadosWebhook.remoteJid, resumoDashboard, dadosAgendamento.codigo_imovel!);
+  log.info({ agendamentoId: novoAgendamento.id, refImovel, valorImovel }, "Reagendamento processado com sucesso, salvando resumo no lead...");
+  await supabase.salvarResumoVisita(dadosWebhook.remoteJid, resumoDashboard, refImovel, valorImovel);
 
   return {
     agendamentoCriado: novoAgendamento,

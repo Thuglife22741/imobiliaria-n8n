@@ -247,14 +247,19 @@ export async function salvarQualificacaoInicial(
 export async function salvarResumoVisita(
   telefone: string,
   descricao: string,
-  codigoImovel: string
+  codigoImovel: string,
+  valor?: number | null
 ): Promise<void> {
-  const log = createChildLogger({ service: "supabase", operacao: "salvarResumoVisita", telefone, codigoImovel });
+  const log = createChildLogger({ service: "supabase", operacao: "salvarResumoVisita", telefone, codigoImovel, valor });
   log.info("Salvando resumo da visita no card do lead");
 
   const { error } = await obterCliente()
     .from("leads")
-    .update({ description: descricao, link_imovel_interesse: codigoImovel })
+    .update({ 
+      description: descricao, 
+      link_imovel_interesse: codigoImovel,
+      value: valor ?? 0 
+    })
     .eq("phone", telefone);
 
   if (error) {
