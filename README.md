@@ -1,6 +1,6 @@
 # Camila — Assistente Imobiliária Inteligente (LangGraph + Supabase) 🏠🔑
 
-![Dashboard Camila](https://jscendxyylrjyrynkwmr.supabase.co/storage/v1/object/public/midia/f4683d62-a54c-44f8-bcbc-8106d2c98317.png)
+![Dashboard Camila](https://xjknsccxvetehreahjcr.supabase.co/storage/v1/object/public/midia/secretaria.png)
 
 Agente autônomo de alta performance para atendimento humanizado, qualificação de leads e busca semântica de imóveis (RAG) integrada ao WhatsApp. Projeto evoluiu de workflow n8n para uma arquitetura robusta baseada em **LangGraph** e **Bun**.
 
