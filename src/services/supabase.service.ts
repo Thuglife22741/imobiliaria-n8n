@@ -271,11 +271,24 @@ export async function salvarResumoVisita(
  */
 export async function atualizarInteresseLead(
   telefone: string,
-  referencia: string,
-  valor: number
+  referencia: string | null,
+  valor: number | null
 ): Promise<void> {
   const log = createChildLogger({ service: "supabase", operacao: "atualizarInteresseLead", telefone, referencia, valor });
-  log.info("Atualizando interesse e valor do lead");
+  
+  // LOG DE GRAVAÇÃO SOLICITADO
+  console.log(`\n[DB UPDATE] Gravando no Lead (Tel: ${telefone}) | Referência: ${referencia} | Valor: ${valor}`);
+
+  // Trava de segurança: se vieram campos nulos/vazios, buscamos o que já existe para não sobrescrever com undefined/zero
+  if (!referencia || !valor) {
+    log.debug("Dados parciais detectados. Recuperando valores existentes para fallback.");
+    const existente = await buscarLeadPorTelefone(telefone);
+    if (existente) {
+      if (!referencia) referencia = existente.link_imovel_interesse ?? null;
+      if (!valor) valor = (existente as any).value ?? 0;
+      log.debug({ referencia, valor }, "Valores recuperados do lead existente");
+    }
+  }
 
   const { error } = await obterCliente()
     .from("leads")

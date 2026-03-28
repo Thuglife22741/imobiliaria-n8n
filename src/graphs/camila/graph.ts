@@ -107,10 +107,14 @@ DADOS DO CLIENTE:
 
   Para texto/saudação: {"intenção":"pergunta_frequente","mensagem":"texto aqui"}
   Para imóveis: {"intenção":"informar_imoveis","mensagem":[{"imagem_url":"url","texto":"desc"}]}
-  Para agendamento: {"intenção":"agendamento_confirmado","mensagem":"confirmação","data_agendamento":"dd/MM/yyyy","hora_agendamento":"HH:mm","codigo_imovel":"CA252","corretor":"Carlos Mendes","valor_interesse":340000}
+  Para agendamento: {"intenção":"agendamento_confirmado","mensagem":"confirmação","data_agendamento":"dd/MM/yyyy","hora_agendamento":"HH:mm","codigo_imovel":"CA252","corretor":"Carlos Mendes"}
   Para reagendamento: {"intenção":"reagendamento_solicitado","mensagem":"texto","data_antiga":"dd/MM/yyyy","hora_antiga":"HH:mm","codigo_imovel":"CA252","data_agendamento":"dd/MM/yyyy","hora_agendamento":"HH:mm","corretor":"Carlos Mendes"}
 
-  CRITICAL: Sempre que identificar interesse em um imóvel específico (pela referência), adicione: "referencia_interesse": "CÓDIGO" e "valor_interesse": 123456 (número puro).
+  CRITICAL_DATA_EXTRACTION: 
+  Sempre que um código de referência (ex: CA252, AP123) aparecer ou o cliente demonstrar interesse em um imóvel específico, você DEVE OBRIGATORIAMENTE incluir os campos:
+  "referencia_interesse": "CÓDIGO"
+  "valor_interesse": 123456 (número inteiro sem formatação)
+  Extraia isso de qualquer parte da conversa ou histórico.
 </response_format>
 
 <restrictions>
@@ -167,10 +171,12 @@ function parsearRespostaAgente(raw: string): {
       : null;
 
   const dadosInteresse: DadosInteresse | null = 
-    parsed.referencia_interesse || parsed.valor_interesse
+    parsed.referencia_interesse || parsed.valor_interesse || parsed.codigo_imovel
       ? {
           referencia: (parsed.referencia_interesse as string) ?? (parsed.codigo_imovel as string) ?? null,
-          valor: typeof parsed.valor_interesse === 'number' ? parsed.valor_interesse : (parsed.valor_interesse ? parseFloat(String(parsed.valor_interesse).replace(/[^\d.]/g, '')) : null)
+          valor: typeof parsed.valor_interesse === 'number' 
+            ? parsed.valor_interesse 
+            : (parsed.valor_interesse ? parseFloat(String(parsed.valor_interesse).replace(/[^\d.]/g, '')) : null)
         }
       : null;
 
